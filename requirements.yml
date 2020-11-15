@@ -1,0 +1,5 @@
+---
+
+- src: https://github.com/dseeley/clusterverse
+  version: dps_esxi
+  name: clusterverse

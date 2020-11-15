@@ -1,0 +1,141 @@
+---
+
+- name: jenkins Docker build
+  block:
+    - name: jenkins Docker | prune old docker images
+      become: yes
+      shell: "docker image prune -f"
+
+    - name: jenkins Docker | Create the Docker network
+      become: yes
+      docker_network:
+        name: jenkins
+        ipam_config:
+          - subnet: "{{jenkins_master.docker_network.cidr}}"
+      when: jenkins_master.docker_network.cidr is defined
+
+    - name: jenkins Docker | Set directories and permissions
+      become: yes
+      file:
+        path: "{{item}}"
+        state: directory
+        owner: 1000
+        group: 1000
+        recurse: yes
+      loop:
+        - "{{jenkins_home_dir}}"
+        - "{{jenkins_master.casc_dir}}"
+        - "{{jenkins_master.workspace_dir}}"
+        - "{{jenkins_master.jjb_dir}}"
+
+    - name: jenkins Docker | create JCasC config file
+      copy:
+        content: "{{jenkins_master.casc_config | string | from_yaml | to_nice_yaml(indent=2) }}"
+        dest: "{{jenkins_master.casc_dir}}/jenkins.yaml"
+        decrypt: yes
+        owner: 1000
+        group: 1000
+
+    - name: jenkins Docker | Create temporary build directory
+      become: yes
+      tempfile:
+        state: directory
+        suffix: DockerBuildTEMP
+      register: tmp_build_dir
+
+    - name: jenkins Docker | copy jenkins templates
+      become: yes
+      template:
+        src: "{{item}}"
+        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
+      with_items:
+        - "Dockerfile.j2"
+
+    - name: jenkins Docker | Build the jenkins Docker image
+      become: yes
+      docker_image:
+        source: build
+        build:
+          pull: yes
+          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+          rm: yes
+          path: "{{ tmp_build_dir.path }}"
+        force_source: true
+        name: "jenkins:latest"
+      register: r__docker_image
+
+    - name: jenkins Docker | Get the jenkins Docker image
+      become: yes
+      docker_image_info:
+        name: "jenkins:latest"
+      register: r__docker_image_info
+
+    - name: jenkins Docker | Create and run the jenkins Docker container
+      become: yes
+      docker_container:
+        cleanup: no
+        detach: yes
+        name: "jenkins"
+        user: 1000:1000
+        hostname: "docker--{{inventory_hostname}}"
+        image: "{{r__docker_image_info.images[0].Id}}"
+        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
+        state: started
+        restart_policy: "always"
+        network_mode: host
+#        ports:
+#          - "8080:8080"
+#          - "50000:50000"
+#        networks_cli_compatible: yes
+#        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        volumes:
+          - "/var/jenkins_home:/var/jenkins_home"
+          - "/var/run/docker.sock:/var/run/docker.sock"
+
+    - name: jenkins Docker | Remove temporary build directory
+      become: yes
+      file:
+        path: "{{ tmp_build_dir.path }}"
+        state: absent
+
+- block:
+    - name: jenkins | forward ports 80->8080 and 443->8443 (Debian/ Ubuntu)
+      become: yes
+      shell: "{{ item }}"
+      loop:
+        - "iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080"
+        - "iptables -t nat -I PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 8443"
+        - "mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4 && ip6tables-save > /etc/iptables/rules.v6"
+      when: ansible_os_family == 'Debian'
+
+#    - name: jenkins | Install iptables-persistent to save the iptables rules we just created
+#      become: yes
+#      apt:
+#        pkg: ['iptables-persistent']
+#        update_cache: yes
+#      when: ansible_os_family == 'Debian'
+
+    - name: jenkins | forward ports 80->8080 and 443->8443 (RedHat/ CentOS)
+      become: yes
+      shell: "{{ item }}"
+      loop:
+        - "firewall-cmd --permanent --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080"
+        - "firewall-cmd --permanent --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443"
+      when: ansible_os_family == 'RedHat'
+
+
+- name: jenkins | Wait for Jenkins API to become available
+  uri:
+    url: "http://127.0.0.1:8080/api"
+    status_code: 200
+  register: r__uri
+  until: r__uri.status == 200
+  retries: 60
+  delay: 1
+
+- name: jenkins Docker | remove JCasC config files
+  become: yes
+  shell: "rm -rf {{jenkins_master.casc_dir}}/*"
+
+- name: jenkins | install jjb and jobs
+  include_tasks: jjb.yml

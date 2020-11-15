@@ -1,0 +1,21 @@
+FROM openjdk:11-jre
+
+ENV SWARM_VERSION={{jenkins_slave.swarm_version}}
+ENV JENKINS_HOME {{jenkins_home_dir}}
+
+# install swarm-client.jar
+RUN mkdir -p ${JENKINS_HOME} \
+  && useradd -d ${JENKINS_HOME}/worker -u 1000 -m -s /bin/bash jenkins \
+  && curl -o /bin/swarm-client.jar -SL https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/$SWARM_VERSION/swarm-client-$SWARM_VERSION.jar
+
+RUN apt-get update \
+  && apt-get install -y pipenv git ansible \
+  && apt-get install -y --no-install-recommends apt-transport-https ca-certificates software-properties-common \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
+  && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+  && apt-get update && apt-get install -y --no-install-recommends docker-ce
+
+VOLUME ${JENKINS_HOME}/worker
+WORKDIR ${JENKINS_HOME}/worker
+
+CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME}"]

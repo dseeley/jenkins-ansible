@@ -1,0 +1,17 @@
+---
+
+job:
+  name: 'clusterverse/clusterverse-release'
+  project-type: pipeline
+  display-name: 'clusterverse-release'
+  description: ''
+  disabled: false
+  pipeline-scm:
+    scm:
+      - git:
+          url: https://github.com/dseeley/clusterverse.git
+          branches:
+            - master
+          credentials-id: GITHUB_SVC_USER
+          timeout: 20
+    script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_release

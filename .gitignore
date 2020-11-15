@@ -1,0 +1,9 @@
+inventory_*
+*.retry
+.vscode*
+.idea*
+.DS_Store
+venv
+*.pyc
+Pipfile.lock
+roles/clusterverse

@@ -1,0 +1,44 @@
+FROM jenkins/jenkins:{{jenkins_master.docker_image}}
+
+ARG JAVA_OPTS
+ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false ${JAVA_OPTS:-}"
+
+#Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+ENV JAVA_OPTS "-Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true ${JAVA_OPTS:-}"
+
+ENV JENKINS_HOME {{jenkins_home_dir}}
+ENV CACHE_DIR=${JENKINS_HOME}/.cache
+
+#ENV JENKINS_UC_DOWNLOAD=https://ftp.halifax.rwth-aachen.de/jenkins/
+ENV JENKINS_UC_DOWNLOAD=https://mirror.gruenehoelle.nl/jenkins/
+ENV JENKINS_UC=https://mirror.gruenehoelle.nl/jenkins/updates/stable/update-center.actual.json
+ENV JENKINS_UC_EXPERIMENTAL=http://mirror.gruenehoelle.nl/jenkins/updates/experimental/update-center.actual.json
+ENV JENKINS_PLUGIN_INFO=http://mirror.gruenehoelle.nl/jenkins/updates/current/plugin-versions.json
+
+## Add extensive logging
+# ENV JAVA_OPTS "-Djava.util.logging.config.file=/usr/share/jenkins/ref/log.properties ${JAVA_OPTS:-}"
+# RUN printf 'handlers=java.util.logging.ConsoleHandler\n\
+# jenkins.level=FINEST\n\
+# java.util.logging.ConsoleHandler.level=FINEST'\
+# > /usr/share/jenkins/ref/log.properties
+
+ENV CASC_JENKINS_CONFIG {{jenkins_master.casc_dir}}
+
+# Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool
+RUN mkdir -p ${CASC_JENKINS_CONFIG} && \
+    jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }}
+
+USER root
+
+RUN apt-get update \
+  && apt-get install -y pipenv git ansible \
+  && apt-get install -y --no-install-recommends apt-transport-https ca-certificates software-properties-common \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
+  && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+  && apt-get update && apt-get install -y --no-install-recommends docker-ce
+
+
+USER jenkins
+
+ARG UID=1000
+ARG GID=1000

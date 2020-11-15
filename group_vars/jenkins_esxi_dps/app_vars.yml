@@ -1,0 +1,56 @@
+---
+
+jenkins_admin_username: admin
+jenkins_admin_password: password
+
+jenkins_home_dir: "/var/jenkins_home"
+
+jenkins_slave:
+  swarm_version: 3.24
+jenkins_master:
+  docker_image: "2.249.3-lts-jdk11"
+  casc_dir: "{{jenkins_home_dir}}/casc_configs"
+  workspace_dir: "{{jenkins_home_dir}}/jobs"
+  jjb_dir: "{{jenkins_home_dir}}/jjb"
+#  docker_network:
+#    name: "jenkins"
+#    cidr: "10.50.0.0/24"
+  plugins:
+    - "ansible:latest"
+    - "ansicolor:latest"
+    - "basic-branch-build-strategies:latest"
+    - "blueocean:latest"
+    - "configuration-as-code:latest"
+    - "pipeline-utility-steps:latest"
+    - "swarm:latest"
+    - "workflow-aggregator:latest"
+  casc_config:
+    jenkins:
+      systemMessage: 'dougacicd server'
+      authorizationStrategy: "loggedInUsersCanDoAnything"
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "{{jenkins_admin_username}}"
+              password: "{{jenkins_admin_password}}"
+    credentials:
+      system:
+        domainCredentials:
+          - credentials:
+              - usernamePassword:
+                  scope: GLOBAL
+                  id: GITHUB_SVC_USER
+                  username: SVC_RO
+                  password: "FAKEPASSWD"
+#              - string:
+#                  scope: GLOBAL
+#                  id: VAULT_PASSWORD_SANDBOX
+#                  secret: "FAKEPASSWD"
+#              - basicSSHUserPrivateKey:
+#                  scope: GLOBAL
+#                  id: SANDBOX_SSH_KEY
+#                  username: ubuntu
+#                  privateKeySource:
+#                    directEntry:
+#                      privateKey: "FAKEPASSWD"

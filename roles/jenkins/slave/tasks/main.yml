@@ -1,0 +1,86 @@
+---
+
+- name: Jenkins slave | Install prerequisites
+  become: yes
+  apt:
+    name: ['apt-transport-https', 'ca-certificates', 'curl', 'wget', 'git', 'pipenv']
+    update_cache: yes
+
+- name: jenkins Docker build
+  block:
+    - name: jenkins Docker | prune old docker images
+      become: yes
+      shell: "docker image prune -f"
+
+    - name: jenkins Docker | Set directories and permissions
+      become: yes
+      file:
+        path: "{{item}}"
+        state: directory
+        owner: 1000
+        group: 1000
+        recurse: yes
+      loop:
+        - "{{jenkins_home_dir}}"
+
+    - name: jenkins Docker | Create temporary build directory
+      become: yes
+      tempfile:
+        state: directory
+        suffix: DockerBuildTEMP
+      register: tmp_build_dir
+
+    - name: jenkins Docker | copy jenkins templates
+      become: yes
+      template:
+        src: "{{item}}"
+        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
+      with_items:
+        - "Dockerfile.j2"
+
+    - name: jenkins Docker | Build the jenkins Docker image
+      become: yes
+      docker_image:
+        source: build
+        build:
+          pull: yes
+          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+          rm: yes
+          path: "{{ tmp_build_dir.path }}"
+        force_source: true
+        name: "jenkins:latest"
+      register: r__docker_image
+
+    - name: jenkins Docker | Get the jenkins Docker image
+      become: yes
+      docker_image_info:
+        name: "jenkins:latest"
+      register: r__docker_image_info
+
+    - name: jenkins Docker | Create and run the jenkins Docker container
+      become: yes
+      docker_container:
+        env:
+          JENKINS_USER: "{{jenkins_admin_username}}"
+          JENKINS_PASS: "{{jenkins_admin_password}}"
+          JENKINS_NAME: "{{inventory_hostname}}"
+          JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['master'][0] }}.{{ cluster_vars.dns_user_domain }}{% else %}{{ hostvars[groups['master'][0]]['ansible_host'] }}{% endif %}:8080"
+        cleanup: no
+        detach: yes
+        name: "jenkinsslave"
+        user: 1000:1000
+        hostname: "docker--{{inventory_hostname}}"
+        image: "{{r__docker_image_info.images[0].Id}}"
+        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
+        state: started
+        restart_policy: "always"
+        network_mode: host
+        volumes:
+          - "/var/jenkins_home:/var/jenkins_home"
+          - "/var/run/docker.sock:/var/run/docker.sock"
+
+    - name: jenkins Docker | Remove temporary build directory
+      become: yes
+      file:
+        path: "{{ tmp_build_dir.path }}"
+        state: absent
