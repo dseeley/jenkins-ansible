@@ -1,5 +1,8 @@
 ---
 
+- name: "Assert that only 1 master node is being created"
+  assert: { that: "groups['master'] | length == 1", msg: "You may only create a single master node." }
+
 - name: jenkins Docker build
   block:
     - name: jenkins Docker | prune old docker images

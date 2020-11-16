@@ -1,6 +1,6 @@
 ---
 
-- name: Install gnupg2 for APT GPG key
+- name: Install required packages (gnupg2 for docker GPG key)
   become: yes
   apt:
     name: ['gnupg2', 'python3-pip']
