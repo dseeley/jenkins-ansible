@@ -64,7 +64,7 @@
   copy:
     content: |-
       - job:
-          {{ item[_filename].job | to_nice_yaml(indent=2) | indent(4, false) }}
+          {{ item[_filename].job | to_nice_yaml(indent=2, width=10000) | indent(4, false) }}
     dest: "{{ jenkins_master.jjb_dir }}/{{ _filename }}"
     mode: 0440
     owner: 1000

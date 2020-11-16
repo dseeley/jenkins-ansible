@@ -33,11 +33,13 @@
 
     - name: jenkins Docker | create JCasC config file
       copy:
-        content: "{{jenkins_master.casc_config | string | from_yaml | to_nice_yaml(indent=2) }}"
+        content: "{{ casc_config | to_nice_json }}"       # Note: we cannot use {{ jenkins_master.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
         dest: "{{jenkins_master.casc_dir}}/jenkins.yaml"
         decrypt: yes
         owner: 1000
         group: 1000
+      vars:
+        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -67,7 +69,7 @@
         name: "jenkins:latest"
       register: r__docker_image
 
-    - name: jenkins Docker | Get the jenkins Docker image
+    - name: jenkins Docker | Get the jenkins Docker image id
       become: yes
       docker_image_info:
         name: "jenkins:latest"

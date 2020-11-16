@@ -6,7 +6,8 @@ jenkins_admin_password: password
 jenkins_home_dir: "/var/jenkins_home"
 
 jenkins_slave:
-  swarm_version: 3.24
+  swarm_version: "3.24"
+
 jenkins_master:
   docker_image: "2.249.3-lts-jdk11"
   casc_dir: "{{jenkins_home_dir}}/casc_configs"

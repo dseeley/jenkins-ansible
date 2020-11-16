@@ -1,16 +1,17 @@
 ---
 
 job:
-  name: 'clusterverse/clusterverse-release-deploy'
+  name: 'clusterverse/clusterverse-release-tag'
   project-type: pipeline
-  display-name: 'clusterverse-release-deploy'
+  display-name: 'clusterverse-release-tag'
+  description: ''
   disabled: false
   pipeline-scm:
     scm:
       - git:
           url: https://github.com/dseeley/clusterverse.git
           branches:
-            - dps_esxi
+            - dps_exsi
           credentials-id: GITHUB_SVC_USER
           timeout: 20
-    script-path: jenkinsfiles/Jenkinsfile_exec_release_deploy
+    script-path: jenkinsfiles/Jenkinsfile_release_tag

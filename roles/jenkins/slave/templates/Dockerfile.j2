@@ -2,6 +2,7 @@ FROM openjdk:11-jre
 
 ENV SWARM_VERSION={{jenkins_slave.swarm_version}}
 ENV JENKINS_HOME {{jenkins_home_dir}}
+ENV JENKINS_EXECUTORS {{ansible_processor_vcpus}}
 
 # install swarm-client.jar
 RUN mkdir -p ${JENKINS_HOME} \
@@ -18,4 +19,4 @@ RUN apt-get update \
 VOLUME ${JENKINS_HOME}/worker
 WORKDIR ${JENKINS_HOME}/worker
 
-CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME}"]
+CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME} -executors ${JENKINS_EXECUTORS}"]

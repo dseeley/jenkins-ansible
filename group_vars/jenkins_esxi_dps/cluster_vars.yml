@@ -1,13 +1,13 @@
 ---
 
-redeploy_schemes_supported: ['_scheme_rmvm_keepdisk_rollback']
+redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback', '_scheme_rmvm_rmdisk_only', '_scheme_rmvm_keepdisk_rollback']
 
 redeploy_scheme: _scheme_rmvm_keepdisk_rollback
 
 _scheme_rmvm_keepdisk_rollback__copy_or_move: move
 
-pkgupdate: False
-reboot_on_package_upgrade: True
+pkgupdate: false
+reboot_on_package_upgrade: true
 
 prometheus_node_exporter_install: false
 filebeat_install: false
@@ -62,7 +62,7 @@ cluster_vars:
       - networkName: "VM Network"
         virtualDev: vmxnet3
         cloudinit_netplan:
-          ethernets: {eth0: { dhcp4: true } }
+          ethernets: {eth0: {dhcp4: true}}
     hosttype_vars:
       master: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "/var/jenkins/jenkins_home", "volume_size": 2, provisioning_type: "thin", fstype: "ext4"}]}
       slave: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "/var/jenkins/jenkins_home", "volume_size": 5, provisioning_type: "thin", fstype: "ext4"}]}
