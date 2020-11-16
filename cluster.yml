@@ -21,7 +21,7 @@
   hosts: all
   tasks:
     - { name: remove cloud-init, become: yes, apt: {name: "cloud-init", state: absent} }
-    - { include_role: { name: "jenkins/_common", apply: {tags: ["jenkins_common"]} }, tags: ["jenkins_common"] }
+    - { include_role: { name: "jenkins/_common", tasks_from: "packages", apply: {tags: ["jenkins_common"]} }, tags: ["jenkins_common"] }
 
 - name: Jenkins master tasks
   hosts: master
