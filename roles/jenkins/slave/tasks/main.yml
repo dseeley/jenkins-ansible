@@ -10,7 +10,7 @@
   block:
     - name: jenkins Docker | prune old docker images
       become: yes
-      shell: "docker image prune -f"
+      shell: "docker image prune -f; docker volume prune -f"
 
     - name: jenkins Docker | Set directories and permissions
       become: yes
@@ -51,7 +51,7 @@
         name: "jenkins:latest"
       register: r__docker_image
 
-    - name: jenkins Docker | Get the jenkins Docker image
+    - name: jenkins Docker | Get the jenkins Docker image id
       become: yes
       docker_image_info:
         name: "jenkins:latest"

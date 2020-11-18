@@ -10,6 +10,7 @@ jenkins_slave:
 
 jenkins_master:
   docker_image: "2.249.3-lts-jdk11"
+  docker_data_root_dir: "{{jenkins_home_dir}}/var/lib/docker"
   casc_dir: "{{jenkins_home_dir}}/casc_configs"
   workspace_dir: "{{jenkins_home_dir}}/jobs"
   jjb_dir: "{{jenkins_home_dir}}/jjb"

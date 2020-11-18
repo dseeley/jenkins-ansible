@@ -7,7 +7,7 @@
   block:
     - name: jenkins Docker | prune old docker images
       become: yes
-      shell: "docker image prune -f"
+      shell: "docker image prune -f; docker volume prune -f"
 
     - name: jenkins Docker | Create the Docker network
       become: yes
@@ -104,7 +104,7 @@
         state: absent
 
 - block:
-    - name: jenkins | forward ports 80->8080 and 443->8443 (Debian/ Ubuntu)
+    - name: jenkins | permanently forward ports 80->8080 and 443->8443 (iptables - Debian/ Ubuntu)
       become: yes
       shell: "{{ item }}"
       loop:
@@ -120,7 +120,7 @@
 #        update_cache: yes
 #      when: ansible_os_family == 'Debian'
 
-    - name: jenkins | forward ports 80->8080 and 443->8443 (RedHat/ CentOS)
+    - name: jenkins | permanently forward ports 80->8080 and 443->8443 (firewall-cmd - RedHat/ CentOS)
       become: yes
       shell: "{{ item }}"
       loop:

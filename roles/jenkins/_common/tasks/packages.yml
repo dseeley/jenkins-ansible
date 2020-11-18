@@ -8,6 +8,25 @@
 
 - name: Install docker from Docker repos
   block:
+    - name: Create docker data-root dir
+      become: yes
+      file: 
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{docker_data_root_dir}}"
+        - "/etc/docker"
+
+    - name: Add docker config to set data-root to mounted volume
+      become: yes
+      copy:
+        content: |
+          {
+            "data-root": "{{docker_data_root_dir}}"
+          }
+        dest: "/etc/docker/daemon.json"
+        force: yes
+
     - name: Add Docker GPG apt Key
       become: yes
       apt_key:
