@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+awscli = "*"
+boto3 = "*"
+boto = "*"
+botocore = "*"
+requests = "*"
+ansible = ">=2.9"
+jmespath = "*"
+dnspython = "*"
+google-auth = "*"
+netaddr = "*"
+passlib = "*"
+shade = "*"
+apache-libcloud = "*"
+google-api-python-client = "*"
+lxml = "*"
+paramiko = "*"
+PyVmomi = "*"
+
+[dev-packages]
+

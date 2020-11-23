@@ -3,105 +3,8 @@
 - name: "Assert that only 1 master node is being created"
   assert: { that: "groups['master'] | length == 1", msg: "You may only create a single master node." }
 
-- name: jenkins Docker build
-  block:
-    - name: jenkins Docker | prune old docker images
-      become: yes
-      shell: "docker image prune -f; docker volume prune -f"
-
-    - name: jenkins Docker | Create the Docker network
-      become: yes
-      docker_network:
-        name: jenkins
-        ipam_config:
-          - subnet: "{{jenkins_master.docker_network.cidr}}"
-      when: jenkins_master.docker_network.cidr is defined
-
-    - name: jenkins Docker | Set directories and permissions
-      become: yes
-      file:
-        path: "{{item}}"
-        state: directory
-        owner: 1000
-        group: 1000
-        recurse: yes
-      loop:
-        - "{{jenkins_home_dir}}"
-        - "{{jenkins_master.casc_dir}}"
-        - "{{jenkins_master.workspace_dir}}"
-        - "{{jenkins_master.jjb_dir}}"
-
-    - name: jenkins Docker | create JCasC config file
-      copy:
-        content: "{{ casc_config | to_nice_json }}"       # Note: we cannot use {{ jenkins_master.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
-        dest: "{{jenkins_master.casc_dir}}/jenkins.yaml"
-        decrypt: yes
-        owner: 1000
-        group: 1000
-      vars:
-        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
-
-    - name: jenkins Docker | Create temporary build directory
-      become: yes
-      tempfile:
-        state: directory
-        suffix: DockerBuildTEMP
-      register: tmp_build_dir
-
-    - name: jenkins Docker | copy jenkins templates
-      become: yes
-      template:
-        src: "{{item}}"
-        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
-      with_items:
-        - "Dockerfile.j2"
-
-    - name: jenkins Docker | Build the jenkins Docker image
-      become: yes
-      docker_image:
-        source: build
-        build:
-          pull: yes
-          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
-          rm: yes
-          path: "{{ tmp_build_dir.path }}"
-        force_source: true
-        name: "jenkins:latest"
-      register: r__docker_image
-
-    - name: jenkins Docker | Get the jenkins Docker image id
-      become: yes
-      docker_image_info:
-        name: "jenkins:latest"
-      register: r__docker_image_info
-
-    - name: jenkins Docker | Create and run the jenkins Docker container
-      become: yes
-      docker_container:
-        cleanup: no
-        detach: yes
-        name: "jenkins"
-        user: 1000:1000
-        hostname: "docker--{{inventory_hostname}}"
-        image: "{{r__docker_image_info.images[0].Id}}"
-        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
-        state: started
-        restart_policy: "always"
-        network_mode: host
-#        ports:
-#          - "8080:8080"
-#          - "50000:50000"
-#        networks_cli_compatible: yes
-#        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
-        volumes:
-          - "/var/jenkins_home:/var/jenkins_home"
-          - "/var/run/docker.sock:/var/run/docker.sock"
-
-    - name: jenkins Docker | Remove temporary build directory
-      become: yes
-      file:
-        path: "{{ tmp_build_dir.path }}"
-        state: absent
+- name: jenkins | install Jenkins in Docker
+  include_tasks: jenkins_in_docker.yml
 
 - block:
     - name: jenkins | permanently forward ports 80->8080 and 443->8443 (iptables - Debian/ Ubuntu)
@@ -112,13 +15,6 @@
         - "iptables -t nat -I PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 8443"
         - "mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4 && ip6tables-save > /etc/iptables/rules.v6"
       when: ansible_os_family == 'Debian'
-
-#    - name: jenkins | Install iptables-persistent to save the iptables rules we just created
-#      become: yes
-#      apt:
-#        pkg: ['iptables-persistent']
-#        update_cache: yes
-#      when: ansible_os_family == 'Debian'
 
     - name: jenkins | permanently forward ports 80->8080 and 443->8443 (firewall-cmd - RedHat/ CentOS)
       become: yes
@@ -138,9 +34,9 @@
   retries: 60
   delay: 1
 
-- name: jenkins Docker | remove JCasC config files
-  become: yes
-  shell: "rm -rf {{jenkins_master.casc_dir}}/*"
+#- name: jenkins | remove JCasC config files
+#  become: yes
+#  shell: "rm -rf {{jenkins_master.casc_dir}}/*"
 
 - name: jenkins | install jjb and jobs
   include_tasks: jjb.yml

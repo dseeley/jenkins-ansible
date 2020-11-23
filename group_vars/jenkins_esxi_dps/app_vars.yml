@@ -1,29 +1,30 @@
 ---
 
-jenkins_admin_username: admin
-jenkins_admin_password: password
+docker_data_root_dir: "/var/lib/docker"
 
+jenkins_admin_username: admin
+jenkins_admin_password: "FAKEPASSWD"
 jenkins_home_dir: "/var/jenkins_home"
+
+jenkins_username: jenkins
+jenkins_uid: 386
 
 jenkins_slave:
   swarm_version: "3.24"
 
 jenkins_master:
   docker_image: "2.249.3-lts-jdk11"
-  docker_data_root_dir: "{{jenkins_home_dir}}/var/lib/docker"
-  casc_dir: "{{jenkins_home_dir}}/casc_configs"
-  workspace_dir: "{{jenkins_home_dir}}/jobs"
-  jjb_dir: "{{jenkins_home_dir}}/jjb"
 #  docker_network:
 #    name: "jenkins"
 #    cidr: "10.50.0.0/24"
   plugins:
-    - "ansible:latest"
-    - "ansicolor:latest"
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"
     - "configuration-as-code:latest"
+    - "git-parameter:latest"
+    - "extended-choice-parameter:latest"
     - "pipeline-utility-steps:latest"
+    - "rebuild:latest"
     - "swarm:latest"
     - "workflow-aggregator:latest"
   casc_config:
@@ -36,6 +37,9 @@ jenkins_master:
           users:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
+    unclassified:
+      globalDefaultFlowDurabilityLevel:
+        durabilityHint: PERFORMANCE_OPTIMIZED
     credentials:
       system:
         domainCredentials:
@@ -45,14 +49,25 @@ jenkins_master:
                   id: GITHUB_SVC_USER
                   username: SVC_RO
                   password: "FAKEPASSWD"
-#              - string:
-#                  scope: GLOBAL
-#                  id: VAULT_PASSWORD_SANDBOX
-#                  secret: "FAKEPASSWD"
-#              - basicSSHUserPrivateKey:
-#                  scope: GLOBAL
-#                  id: SANDBOX_SSH_KEY
-#                  username: ubuntu
-#                  privateKeySource:
-#                    directEntry:
-#                      privateKey: "FAKEPASSWD"
+              - string:
+                  scope: GLOBAL
+                  id: VAULT_PASSWORD_DEV
+                  secret: "FAKEPASSWD"
+              - string:
+                  scope: GLOBAL
+                  id: VAULT_PASSWORD_PROD
+                  secret: "FAKEPASSWD"
+              - basicSSHUserPrivateKey:
+                  scope: GLOBAL
+                  id: SSH_KEY_DPSTEST_ESXI_DOUGALAB_DEV
+                  username: ansible
+                  privateKeySource:
+                    directEntry:
+                      privateKey: "FAKEPASSWD"
+              - basicSSHUserPrivateKey:
+                  scope: GLOBAL
+                  id: SSH_KEY_DPSTEST_ESXI_DOUGALAB_PROD
+                  username: ansible
+                  privateKeySource:
+                    directEntry:
+                      privateKey: "FAKEPASSWD"

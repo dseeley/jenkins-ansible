@@ -10,13 +10,20 @@ RUN mkdir -p ${JENKINS_HOME} \
   && curl -o /bin/swarm-client.jar -SL https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/$SWARM_VERSION/swarm-client-$SWARM_VERSION.jar
 
 RUN apt-get update \
-  && apt-get install -y pipenv git ansible \
-  && apt-get install -y --no-install-recommends apt-transport-https ca-certificates software-properties-common \
+  && apt-get install -y pipenv git vim sudo \
+  && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
   && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
   && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
   && apt-get update && apt-get install -y --no-install-recommends docker-ce
 
+# Change the docker group ID to the same as the host so that non-root users can access the socket via its group membership.
+RUN groupmod -g {{docker_group_id}} docker
+
+USER jenkins
+
 VOLUME ${JENKINS_HOME}/worker
 WORKDIR ${JENKINS_HOME}/worker
+
+USER root
 
 CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME} -executors ${JENKINS_EXECUTORS}"]

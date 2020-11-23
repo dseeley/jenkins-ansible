@@ -34,7 +34,7 @@ cluster_name: "{{app_name}}-{{buildenv}}"       # Identifies the cluster within 
 
 cluster_vars:
   type: &cloud_type "esxifree"
-  image: "gold-ubuntu2004l-20201106095102"
+  image: "gold-ubuntu2004l-20201118205130"
   esxi_ip: "192.168.1.3"
   username: "svc"
   password: "FAKEPASSWD"
@@ -64,7 +64,7 @@ cluster_vars:
         cloudinit_netplan:
           ethernets: {eth0: {dhcp4: true}}
     hosttype_vars:
-      master: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "/var/jenkins/jenkins_home", "volume_size": 2, provisioning_type: "thin", fstype: "ext4"}]}
-      slave: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "/var/jenkins/jenkins_home", "volume_size": 5, provisioning_type: "thin", fstype: "ext4"}]}
+      master: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "{{docker_data_root_dir}}", "volume_size": 16, provisioning_type: "thin", fstype: "ext4"}]}
+      slave: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker_image | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "{{docker_data_root_dir}}", "volume_size": 16, provisioning_type: "thin", fstype: "ext4"}]}
 _cloud_type: *cloud_type
 _dns_nameserver_zone: *dns_nameserver_zone

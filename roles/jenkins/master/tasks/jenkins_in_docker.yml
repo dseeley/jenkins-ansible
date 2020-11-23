@@ -1,0 +1,177 @@
+---
+## Note: install Jenkins Docker from source (https://github.com/jenkinsci/docker), because the image sets the uid and gid to 1000, which
+##  causes irreconcilable conflicts with the host.  See also https://github.com/jenkinsci/docker/issues/112
+
+- name: users | Create user group, named as per username (with same gid as uid if uid is defined)
+  become: yes
+  group:
+    name: "{{ jenkins_username }}"
+    gid: "{{ jenkins_uid }}"
+
+- name: users | linux users
+  become: yes
+  user:
+    name: "{{ jenkins_username }}"
+    group: "{{ jenkins_username }}"
+    uid: "{{ jenkins_uid }}"
+    shell: "/usr/sbin/nologin"
+    groups: ["docker"]
+
+- name: jenkins Docker build
+  block:
+#    - name: jenkins Docker | prune old docker images & volumes
+#      become: yes
+#      shell: "docker image prune -f; docker volume prune -f"
+
+    - name: jenkins Docker | Create the Docker network
+      become: yes
+      docker_network:
+        name: jenkins
+        ipam_config:
+          - subnet: "{{jenkins_master.docker_network.cidr}}"
+      when: jenkins_master.docker_network.cidr is defined
+
+    - name: jenkins Docker | Create temporary build directory
+      become: yes
+      tempfile:
+        state: directory
+        suffix: DockerBuildTEMP
+      register: tmp_build_dir
+
+    - name: jenkins Docker | get host docker group (stored as getent_group['docker'][1])
+      getent:
+        database: group
+        key: docker
+
+    - name: jenkins Docker | git clone Jenkins docker build repo from github
+      become: yes
+      git:
+        repo: https://github.com/jenkinsci/docker.git
+        dest: "{{ tmp_build_dir.path }}"
+
+    - name: jenkins Docker | augment the dockerfile
+      become: yes
+      blockinfile:
+        path: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+        insertbefore: '^ENTRYPOINT'
+        block: |
+          USER root
+          ENV CASC_JENKINS_CONFIG "/var/jenkins_casc"
+
+          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool
+          RUN mkdir -p ${CASC_JENKINS_CONFIG} && \
+          jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }} && \
+          printf "%s" '{{ casc_config | to_json(separators=(',',':')) }}' > "${CASC_JENKINS_CONFIG}/jenkins.yaml"
+
+          RUN apt-get update \
+          && apt-get install -y pipenv git vim sudo \
+          && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
+          && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
+          && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+          && apt-get update && apt-get install -y --no-install-recommends docker-ce
+
+          # Change the docker group ID to the same as the host so that non-root users can access the socket via its group membership.
+          # Note: Cannot `usermod -a -G docker jenkins` the Jenkins user to the docker group here, because the container is already running as the jenkins user.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
+          RUN groupmod -g {{docker_group_id}} docker
+      vars:
+        docker_group_id: "{{getent_group['docker'][1]}}"
+        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+
+    - name: jenkins Docker | remove the JENKINS_SHA check
+      become: yes
+      lineinfile:
+        path: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+        regexp: '.*?JENKINS_SHA.*sha256sum.*'
+        line: "&& /bin/true"
+
+    - name: jenkins Docker | Get the Jenkins release maven-metadata
+      uri:
+        url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml"
+        return_content: yes
+        status_code: 200
+      register: r__uri
+
+    - name: jenkins Docker | Extract the xml from the Jenkins release metadata
+      xml:
+        xmlstring : "{{r__uri.content}}"
+        content: "text"
+        xpath: "/metadata/versioning/versions/version"
+      delegate_to: localhost
+      run_once: true
+      register: r__xml
+
+    - set_fact:
+        latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
+        latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
+
+#    - name: jenkins Docker | copy jenkins templates
+#      become: yes
+#      template:
+#        src: "{{item}}"
+#        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
+#      with_items:
+#        - "Dockerfile.j2"
+#      vars:
+#        docker_group_id: "{{getent_group['docker'][1]}}"
+#        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+
+    - name: jenkins Docker | Build the jenkins Docker image
+      become: yes
+      docker_image:
+        source: build
+        build:
+          dockerfile: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+          args:
+            uid: "{{ jenkins_uid }}"
+            gid: "{{ jenkins_uid }}"
+            JENKINS_VERSION: "{{ latest_jenkins_version_lts }}"
+          network: host
+          pull: yes
+          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+          rm: yes
+          path: "{{ tmp_build_dir.path }}"
+        force_source: true
+        name: "jenkinsroot:{{latest_jenkins_version_lts}}-lts-jdk11"
+      register: r__docker_image
+
+    - name: jenkins Docker | Get the jenkins Docker image id
+      become: yes
+      docker_image_info:
+        name: "jenkinsroot:{{latest_jenkins_version_lts}}-lts-jdk11"
+      register: r__docker_image_info
+
+    - name: jenkins Docker | Create and run the jenkins Docker container
+      become: yes
+      docker_container:
+        cleanup: no
+        detach: yes
+        name: "jenkinsmaster"
+        user: "{{jenkins_uid}}:{{jenkins_uid}}"
+        groups: ["docker"]
+        hostname: "docker--{{inventory_hostname}}"
+        image: "{{r__docker_image_info.images[0].Id}}"
+        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
+        state: started
+        restart_policy: "always"
+        network_mode: host
+#        ports:
+#          - "8080:8080"
+#          - "50000:50000"
+#        networks_cli_compatible: yes
+#        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        env:
+          #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+          JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"       #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+        mounts:
+          - target: "/var/jenkins_home"
+            source: "jenkins_home"
+            type: volume
+          - target: "/var/run/docker.sock"
+            source: "/var/run/docker.sock"
+            type: bind
+
+    - name: jenkins Docker | Remove temporary build directory
+      become: yes
+      file:
+        path: "{{ tmp_build_dir.path }}"
+        state: absent

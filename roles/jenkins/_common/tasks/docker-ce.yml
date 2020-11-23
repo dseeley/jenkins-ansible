@@ -3,8 +3,9 @@
 - name: Install required packages (gnupg2 for docker GPG key)
   become: yes
   apt:
-    name: ['gnupg2', 'python3-pip']
+    name: ['git', 'gnupg2', 'python3-pip', 'python3-docker', 'iptables-persistent']
     update_cache: yes
+  when: ansible_os_family == 'Debian'
 
 - name: Install docker from Docker repos
   block:
@@ -17,12 +18,13 @@
         - "{{docker_data_root_dir}}"
         - "/etc/docker"
 
-    - name: Add docker config to set data-root to mounted volume
+    - name: Add docker config to set data-root to mounted volume and disable iptables
       become: yes
       copy:
         content: |
           {
-            "data-root": "{{docker_data_root_dir}}"
+            "data-root": "{{docker_data_root_dir}}",
+            "iptables": false
           }
         dest: "/etc/docker/daemon.json"
         force: yes
@@ -45,8 +47,3 @@
         update_cache: yes
         name: docker-ce
         state: latest
-
-    - name: Install Docker Module for Python
-      become: yes
-      pip:
-        name: ['docker']

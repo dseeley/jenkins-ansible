@@ -1,0 +1,8 @@
+---
+
+- name: _common | install Docker community edition
+  include_tasks: docker-ce.yml
+
+
+- name: _common | install Docker build images
+  include_tasks: docker-build-images.yml

@@ -12,8 +12,12 @@
     name: "jenkins-job-builder"
     state: latest
 
-- name: JJB | Remove old jobs
-  shell: "rm -rf {{jenkins_master.jjb_dir}}/*"
+- name: JJB | Create temporary build directory
+  become: yes
+  tempfile:
+    state: directory
+    suffix: JJBTEMP
+  register: tmp_build_dir
 
 - name: JJB | Upload jenkins_jobs.ini template
   become: yes
@@ -30,10 +34,8 @@
       query_plugins_info=False
       user={{ jenkins_admin_username }}
       password={{ jenkins_admin_password }}
-    dest: "{{ jenkins_master.jjb_dir }}/jenkins_jobs.ini"
+    dest: "{{ tmp_build_dir.path }}/jenkins_jobs.ini"
     mode: 0440
-    owner: 1000
-    group: 1000
 
 - name: JJB | Load the jobs files into 'jjb_jobs' fact
   set_fact:
@@ -41,37 +43,53 @@
   with_fileglob: "{{ playbook_dir }}/group_vars/{{ clusterid }}/jjb_jobs/*"
 
 - name: JJB | Copy folder jobs to the JJB directory
+  become: yes
   blockinfile:
     content: |-
       - job:
           name: "{{item}}"
           project-type: folder
-    path: "{{ jenkins_master.jjb_dir }}/_folders-definition.yml"
+    path: "{{ tmp_build_dir.path }}/_folders-definition.yml"
     create: yes
     marker: "## {mark} ANSIBLE MANAGED BLOCK ({{item}})"
     mode: 0440
-    owner: 1000
-    group: 1000
   with_items: "{{ _folder_names }}"
   vars:
     _job_names: "{{jjb_jobs | json_query(\"[].*.job.name[]\")}}"
     _folder_names: "{{ _job_names | map ('regex_search', '^(.*?)\/.+$', '\\1') | list | json_query(\"[]\") }}"
 
-- name: JJB | Reload jenkins-jobs (add folders first)
-  shell: "jenkins-jobs --conf {{ jenkins_master.jjb_dir }}/jenkins_jobs.ini update {{ jenkins_master.jjb_dir }} --workers 0 --delete-old"
+- name: JJB | Reload jenkins-jobs (create folders first)
+  become: yes
+  shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
 
 - name: JJB | Copy jobs to the JJB directory
+  become: yes
   copy:
     content: |-
       - job:
           {{ item[_filename].job | to_nice_yaml(indent=2, width=10000) | indent(4, false) }}
-    dest: "{{ jenkins_master.jjb_dir }}/{{ _filename }}"
+    dest: "{{ tmp_build_dir.path }}/{{ _filename }}"
     mode: 0440
-    owner: 1000
-    group: 1000
   with_items: "{{ jjb_jobs }}"
   vars:
     _filename: "{{ item.keys() | list | first }}"
+#  register: r__copy
+#  async: 7200
+#  poll: 0
+#
+#- name: JJB | Wait for job copy to complete
+#  async_status: { jid: "{{ item.ansible_job_id }}" }
+#  register: async_jobs
+#  until: async_jobs.finished
+#  retries: 300
+#  with_items: "{{r__copy.results}}"
 
 - name: JJB | Reload jenkins-jobs (add jobs)
-  shell: "jenkins-jobs --conf {{ jenkins_master.jjb_dir }}/jenkins_jobs.ini update {{ jenkins_master.jjb_dir }} --workers 0 --delete-old"
+  become: yes
+  shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
+
+- name: JJB | Remove temporary build directory
+  become: yes
+  file:
+    path: "{{ tmp_build_dir.path }}"
+    state: absent

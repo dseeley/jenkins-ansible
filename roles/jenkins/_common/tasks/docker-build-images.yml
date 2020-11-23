@@ -1,0 +1,36 @@
+---
+
+- name: jenkins Docker | Create temporary build directory
+  become: yes
+  tempfile:
+    state: directory
+    suffix: DockerBuildTEMP
+  register: tmp_build_dir
+
+
+- name: template out the images
+  become: yes
+  template:
+    src: "{{item}}"
+    dest: "{{ tmp_build_dir.path }}/{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
+  with_fileglob: "{{ role_path }}/templates/Dockerfiles/*"
+
+
+- name: build image
+  become: yes
+  docker_image:
+    source: build
+    build:
+      dockerfile: "{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
+      args:
+        uid: "{{ jenkins_uid }}"
+        gid: "{{ jenkins_uid }}"
+      network: host
+      pull: yes
+      nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+      rm: yes
+      path: "{{ tmp_build_dir.path }}"
+    force_source: true
+    name: "{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
+  register: r__docker_image
+  with_fileglob: "{{ role_path }}/templates/Dockerfiles/*"      # Note with_fileglob only works on localhost - can't look for remote files
