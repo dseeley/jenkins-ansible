@@ -8,12 +8,16 @@ jenkins_home_dir: "/var/jenkins_home"
 
 jenkins_username: jenkins
 jenkins_uid: 386
+jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_slave:
   swarm_version: "3.24"
 
 jenkins_master:
-  docker_image: "2.249.3-lts-jdk11"
+  docker:
+    repo_dockerfile_path: "/11/debian/buster/hotspot/Dockerfile"    # From: https://github.com/jenkinsci/docker.git
+    version: "2.249.3"                                              # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
+  workspace_dir: "{{jenkins_home_dir}}/jobs"
 #  docker_network:
 #    name: "jenkins"
 #    cidr: "10.50.0.0/24"
@@ -21,8 +25,9 @@ jenkins_master:
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"
     - "configuration-as-code:latest"
-    - "git-parameter:latest"
     - "extended-choice-parameter:latest"
+    - "git-parameter:latest"
+    - "parameterized-scheduler:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "swarm:latest"

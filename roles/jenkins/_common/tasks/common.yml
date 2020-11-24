@@ -1,8 +1,32 @@
 ---
 
-- name: _common | install Docker community edition
+- name: jenkins/common | Install required packages (gnupg2 for docker GPG key)
+  become: yes
+  apt:
+    name: ['git', 'gnupg2', 'python3-pip', 'python3-docker', 'iptables-persistent']
+    update_cache: yes
+  when: ansible_os_family == 'Debian'
+
+- name: jenkins/common | install Docker community edition
   include_tasks: docker-ce.yml
 
 
-- name: _common | install Docker build images
+- name: jenkins/common | Create user group, named as per username (with same gid as uid if uid is defined)
+  become: yes
+  group:
+    name: "{{ jenkins_username }}"
+    gid: "{{ jenkins_gid }}"
+
+# Note: must run after docker install for docker group to exist
+- name: jenkins/common | linux users
+  become: yes
+  user:
+    name: "{{ jenkins_username }}"
+    group: "{{ jenkins_username }}"
+    uid: "{{ jenkins_uid }}"
+    shell: "/usr/sbin/nologin"
+    groups: ["docker"]
+
+
+- name: jenkins/common | install Docker build images
   include_tasks: docker-build-images.yml

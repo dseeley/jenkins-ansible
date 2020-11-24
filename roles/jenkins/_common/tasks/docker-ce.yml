@@ -1,15 +1,8 @@
 ---
 
-- name: Install required packages (gnupg2 for docker GPG key)
-  become: yes
-  apt:
-    name: ['git', 'gnupg2', 'python3-pip', 'python3-docker', 'iptables-persistent']
-    update_cache: yes
-  when: ansible_os_family == 'Debian'
-
-- name: Install docker from Docker repos
+- name: jenkins/docker-ce | Install docker from Docker repos
   block:
-    - name: Create docker data-root dir
+    - name: jenkins/docker-ce | Create docker data-root dir
       become: yes
       file: 
         path: "{{ item }}"
@@ -18,7 +11,7 @@
         - "{{docker_data_root_dir}}"
         - "/etc/docker"
 
-    - name: Add docker config to set data-root to mounted volume and disable iptables
+    - name: jenkins/docker-ce | Add docker config to set data-root to mounted volume and disable iptables
       become: yes
       copy:
         content: |
@@ -29,19 +22,19 @@
         dest: "/etc/docker/daemon.json"
         force: yes
 
-    - name: Add Docker GPG apt Key
+    - name: jenkins/docker-ce | Add Docker GPG apt Key
       become: yes
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
-    - name: Add Docker Repository
+    - name: jenkins/docker-ce | Add Docker Repository
       become: yes
       apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable
         state: present
 
-    - name: Update apt and install docker-ce
+    - name: jenkins/docker-ce | Update apt and install docker-ce
       become: yes
       apt:
         update_cache: yes

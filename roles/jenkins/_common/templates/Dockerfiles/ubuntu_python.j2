@@ -5,9 +5,21 @@ ENV HOME=${JENKINS_HOME}
 ENV PIPENV_CACHE_DIR=${JENKINS_HOME}/.cache
 ENV TZ=Europe/London
 
-RUN apt-get update \
-  && apt-get install -y pipenv git \
-  && apt-get install -y pipenv git
+RUN apt-get update && \
+  apt-get install -y git pipenv ansible \
+          python3-boto3 \
+          python3-boto \
+          python3-botocore \
+          python3-distutils \
+          python3-dnspython \
+          python3-google-auth \
+          python3-jinja2 \
+          python3-jmespath \
+          python3-lxml \
+          python3-ruamel.yaml \
+          python3-setuptools \
+          python3-pyvmomi \
+          python3-paramiko
 
-RUN groupadd -g {{jenkins_uid}} {{jenkins_username}} && \
-    useradd -m -u {{jenkins_uid}} -g {{jenkins_uid}} -s /bin/bash {{jenkins_username}}
+RUN groupadd -g {{jenkins_gid}} {{jenkins_username}} && \
+    useradd -m -u {{jenkins_uid}} -g {{jenkins_gid}} -s /bin/bash {{jenkins_username}}

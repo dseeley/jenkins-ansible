@@ -2,21 +2,6 @@
 ## Note: install Jenkins Docker from source (https://github.com/jenkinsci/docker), because the image sets the uid and gid to 1000, which
 ##  causes irreconcilable conflicts with the host.  See also https://github.com/jenkinsci/docker/issues/112
 
-- name: users | Create user group, named as per username (with same gid as uid if uid is defined)
-  become: yes
-  group:
-    name: "{{ jenkins_username }}"
-    gid: "{{ jenkins_uid }}"
-
-- name: users | linux users
-  become: yes
-  user:
-    name: "{{ jenkins_username }}"
-    group: "{{ jenkins_username }}"
-    uid: "{{ jenkins_uid }}"
-    shell: "/usr/sbin/nologin"
-    groups: ["docker"]
-
 - name: jenkins Docker build
   block:
 #    - name: jenkins Docker | prune old docker images & volumes
@@ -52,7 +37,7 @@
     - name: jenkins Docker | augment the dockerfile
       become: yes
       blockinfile:
-        path: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+        path: "{{ tmp_build_dir.path }}{{jenkins_master.docker.repo_dockerfile_path}}"
         insertbefore: '^ENTRYPOINT'
         block: |
           USER root
@@ -80,7 +65,7 @@
     - name: jenkins Docker | remove the JENKINS_SHA check
       become: yes
       lineinfile:
-        path: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+        path: "{{ tmp_build_dir.path }}{{jenkins_master.docker.repo_dockerfile_path}}"
         regexp: '.*?JENKINS_SHA.*sha256sum.*'
         line: "&& /bin/true"
 
@@ -101,8 +86,10 @@
       register: r__xml
 
     - set_fact:
-        latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
-        latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
+        jenkins_version: "{%-if jenkins_master.docker.version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_master.docker.version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_master.docker.version}}{%- endif -%}"
+      vars:
+        _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
+        _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
 
 #    - name: jenkins Docker | copy jenkins templates
 #      become: yes
@@ -120,24 +107,24 @@
       docker_image:
         source: build
         build:
-          dockerfile: "{{ tmp_build_dir.path }}/11/debian/buster/hotspot/Dockerfile"
+          dockerfile: "{{ tmp_build_dir.path }}{{jenkins_master.docker.repo_dockerfile_path}}"
           args:
             uid: "{{ jenkins_uid }}"
-            gid: "{{ jenkins_uid }}"
-            JENKINS_VERSION: "{{ latest_jenkins_version_lts }}"
+            gid: "{{ jenkins_gid }}"
+            JENKINS_VERSION: "{{ jenkins_version }}"
           network: host
           pull: yes
           nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
           rm: yes
           path: "{{ tmp_build_dir.path }}"
         force_source: true
-        name: "jenkinsroot:{{latest_jenkins_version_lts}}-lts-jdk11"
+        name: "jenkins_master:{{ jenkins_version }}"
       register: r__docker_image
 
     - name: jenkins Docker | Get the jenkins Docker image id
       become: yes
       docker_image_info:
-        name: "jenkinsroot:{{latest_jenkins_version_lts}}-lts-jdk11"
+        name: "jenkins_master:{{ jenkins_version }}"
       register: r__docker_image_info
 
     - name: jenkins Docker | Create and run the jenkins Docker container
@@ -145,8 +132,8 @@
       docker_container:
         cleanup: no
         detach: yes
-        name: "jenkinsmaster"
-        user: "{{jenkins_uid}}:{{jenkins_uid}}"
+        name: "jenkins_master"
+        user: "{{jenkins_uid}}:{{jenkins_gid}}"
         groups: ["docker"]
         hostname: "docker--{{inventory_hostname}}"
         image: "{{r__docker_image_info.images[0].Id}}"
@@ -163,7 +150,7 @@
           #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"       #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
         mounts:
-          - target: "/var/jenkins_home"
+          - target: "{{jenkins_home_dir}}"
             source: "jenkins_home"
             type: volume
           - target: "/var/run/docker.sock"

@@ -1,27 +1,34 @@
 ---
 
+docker_data_root_dir: "/var/lib/docker"
+
 jenkins_admin_username: admin
 jenkins_admin_password: password
 
 jenkins_home_dir: "/var/jenkins_home"
 
+jenkins_username: jenkins
+jenkins_uid: 386
+jenkins_gid: "{{jenkins_uid}}"
+
 jenkins_slave:
-  swarm_version: 3.24
+  swarm_version: "3.24"
+
 jenkins_master:
-  docker_image: "2.249.3-lts-jdk11"
-  casc_dir: "{{jenkins_home_dir}}/casc_configs"
+  docker:
+    repo_dockerfile_path: "/11/debian/buster/hotspot/Dockerfile"    # From: https://github.com/jenkinsci/docker.git
+    version: "latest-lts"                                           # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
   workspace_dir: "{{jenkins_home_dir}}/jobs"
-  jjb_dir: "{{jenkins_home_dir}}/jjb"
 #  docker_network:
 #    name: "jenkins"
 #    cidr: "10.50.0.0/24"
   plugins:
-    - "ansible:latest"
-    - "ansicolor:latest"
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"
     - "configuration-as-code:latest"
+    - "parameterized-scheduler:latest"
     - "pipeline-utility-steps:latest"
+    - "rebuild:latest"
     - "swarm:latest"
     - "workflow-aggregator:latest"
   casc_config:

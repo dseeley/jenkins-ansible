@@ -73,16 +73,6 @@
   with_items: "{{ jjb_jobs }}"
   vars:
     _filename: "{{ item.keys() | list | first }}"
-#  register: r__copy
-#  async: 7200
-#  poll: 0
-#
-#- name: JJB | Wait for job copy to complete
-#  async_status: { jid: "{{ item.ansible_job_id }}" }
-#  register: async_jobs
-#  until: async_jobs.finished
-#  retries: 300
-#  with_items: "{{r__copy.results}}"
 
 - name: JJB | Reload jenkins-jobs (add jobs)
   become: yes
