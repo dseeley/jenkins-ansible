@@ -5,7 +5,14 @@ job:
   project-type: pipeline
   display-name: 'clusterverse-release-tag'
   description: ''
+  concurrent: true
   disabled: false
+  workspace: "{{ jenkins_master.workspace_dir }}/clusterverse-release"
+  build-discarder:
+    days-to-keep: 5
+    num-to-keep: 10
+    artifact-days-to-keep: 10
+    artifact-num-to-keep: 10
   pipeline-scm:
     scm:
       - git:

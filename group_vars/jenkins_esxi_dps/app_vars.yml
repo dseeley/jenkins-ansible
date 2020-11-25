@@ -12,6 +12,9 @@ jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_slave:
   swarm_version: "3.24"
+#  docker_network:
+#    name: "jenkins"
+#    cidr: "10.50.0.0/24"
 
 jenkins_master:
   docker:

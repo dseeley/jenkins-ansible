@@ -16,6 +16,9 @@ job:
         clean:
           after: true
           before: true
+        property-strategies:
+          all-branches:
+            - suppress-scm-triggering: true
         build-strategies:
           - skip-initial-build: true
   script-path: jenkinsfiles/Jenkinsfile_deploy

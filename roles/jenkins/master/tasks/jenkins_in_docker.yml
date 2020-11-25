@@ -41,6 +41,7 @@
         insertbefore: '^ENTRYPOINT'
         block: |
           USER root
+          ENV PIPENV_VENV_IN_PROJECT=true
           ENV CASC_JENKINS_CONFIG "/var/jenkins_casc"
 
           # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool
@@ -48,9 +49,11 @@
           jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }} && \
           printf "%s" '{{ casc_config | to_json(separators=(',',':')) }}' > "${CASC_JENKINS_CONFIG}/jenkins.yaml"
 
+          ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
           RUN apt-get update \
-          && apt-get install -y pipenv git vim sudo \
+          && apt-get install -y git vim sudo python3-pip \
           && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
+          && pip3 install pipenv \
           && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
           && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
           && apt-get update && apt-get install -y --no-install-recommends docker-ce
@@ -90,17 +93,6 @@
       vars:
         _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
         _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
-
-#    - name: jenkins Docker | copy jenkins templates
-#      become: yes
-#      template:
-#        src: "{{item}}"
-#        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
-#      with_items:
-#        - "Dockerfile.j2"
-#      vars:
-#        docker_group_id: "{{getent_group['docker'][1]}}"
-#        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
 
     - name: jenkins Docker | Build the jenkins Docker image
       become: yes
