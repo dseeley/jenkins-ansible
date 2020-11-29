@@ -11,8 +11,8 @@
       become: yes
       shell: "{{ item }}"
       loop:
-        - "iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080"
-        - "iptables -t nat -I PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 8443"
+        - "iptables -t nat -A PREROUTING -p tcp -m tcp -i {{ ansible_default_ipv4.interface }} --dport 80 -j REDIRECT --to-ports 8080"
+        - "iptables -t nat -A PREROUTING -p tcp -m tcp -i {{ ansible_default_ipv4.interface }} --dport 443 -j REDIRECT --to-ports 8443"
         - "mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4 && ip6tables-save > /etc/iptables/rules.v6"
       when: ansible_os_family == 'Debian'
 
@@ -20,23 +20,9 @@
       become: yes
       shell: "{{ item }}"
       loop:
-        - "firewall-cmd --permanent --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080"
-        - "firewall-cmd --permanent --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443"
+        - "firewall-cmd --zone=external --permanent --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080"
+        - "firewall-cmd --zone=external --permanent --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443"
       when: ansible_os_family == 'RedHat'
-
-
-- name: jenkins | Wait for Jenkins API to become available
-  uri:
-    url: "http://127.0.0.1:8080/api"
-    status_code: 200
-  register: r__uri
-  until: r__uri.status == 200
-  retries: 60
-  delay: 1
-
-#- name: jenkins | remove JCasC config files
-#  become: yes
-#  shell: "rm -rf {{jenkins_master.casc_dir}}/*"
 
 - name: jenkins | install jjb and jobs
   include_tasks: jjb.yml

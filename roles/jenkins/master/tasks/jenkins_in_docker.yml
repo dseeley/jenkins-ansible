@@ -12,9 +12,8 @@
       become: yes
       docker_network:
         name: jenkins
-        ipam_config:
-          - subnet: "{{jenkins_master.docker_network.cidr}}"
-      when: jenkins_master.docker_network.cidr is defined
+        ipam_config: "[{%- if jenkins_master.docker_network.cidr is defined -%}{'subnet': jenkins_master.docker_network.cidr}{%- endif -%}]"
+      when: jenkins_master.docker_network.name is defined
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -34,6 +33,17 @@
         repo: https://github.com/jenkinsci/docker.git
         dest: "{{ tmp_build_dir.path }}"
 
+    - name: jenkins Docker | create JCasC config file
+      become: yes
+      copy:
+        content: "{{ casc_config | to_nice_json }}"       # Note: we cannot use {{ jenkins_master.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
+        dest: "{{jenkins_master.casc_file.local}}"
+        decrypt: yes
+        owner: "{{ jenkins_uid }}"
+        group: "{{ jenkins_gid }}"
+      vars:
+        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+
     - name: jenkins Docker | augment the dockerfile
       become: yes
       blockinfile:
@@ -42,12 +52,11 @@
         block: |
           USER root
           ENV PIPENV_VENV_IN_PROJECT=true
-          ENV CASC_JENKINS_CONFIG "/var/jenkins_casc"
+          ENV CASC_JENKINS_CONFIG "{{ jenkins_master.casc_file.remote | dirname }}"
 
           # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool
           RUN mkdir -p ${CASC_JENKINS_CONFIG} && \
-          jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }} && \
-          printf "%s" '{{ casc_config | to_json(separators=(',',':')) }}' > "${CASC_JENKINS_CONFIG}/jenkins.yaml"
+          jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }}
 
           ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
           RUN apt-get update \
@@ -63,7 +72,6 @@
           RUN groupmod -g {{docker_group_id}} docker
       vars:
         docker_group_id: "{{getent_group['docker'][1]}}"
-        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
 
     - name: jenkins Docker | remove the JENKINS_SHA check
       become: yes
@@ -132,14 +140,12 @@
         recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart_policy: "always"
-        network_mode: host
-#        ports:
-#          - "8080:8080"
-#          - "50000:50000"
-#        networks_cli_compatible: yes
-#        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        network_mode: "{{ jenkins_master.docker_network.network_mode | default('host') }}"
+        networks_cli_compatible: yes
+        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        ports: ["8080:8080", "50000:50000"]
         env:
-          #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+          # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"       #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
         mounts:
           - target: "{{jenkins_home_dir}}"
@@ -148,6 +154,22 @@
           - target: "/var/run/docker.sock"
             source: "/var/run/docker.sock"
             type: bind
+          - target: "{{jenkins_master.casc_file.remote}}"
+            source: "{{jenkins_master.casc_file.local}}"
+            type: bind
+
+    - name: jenkins Docker | Wait for Jenkins API to become available
+      uri:
+        url: "http://127.0.0.1:8080/api"
+        status_code: 200
+      register: r__uri
+      until: r__uri.status == 200
+      retries: 60
+      delay: 1
+
+    - name: jenkins Docker | truncate JCasC config file (do not delete, as it is bind-mounted, so needs to exist if the VM restarts)
+      become: yes
+      copy: { content: "", dest: "{{jenkins_master.casc_file.local}}" }
 
     - name: jenkins Docker | Remove temporary build directory
       become: yes

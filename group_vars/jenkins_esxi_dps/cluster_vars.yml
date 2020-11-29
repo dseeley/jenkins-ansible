@@ -65,6 +65,6 @@ cluster_vars:
           ethernets: {eth0: {dhcp4: true}}
     hosttype_vars:
       master: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker.version | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "{{docker_data_root_dir}}", "volume_size": 16, provisioning_type: "thin", fstype: "ext4"}]}
-      slave: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker.version | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "{{docker_data_root_dir}}", "volume_size": 16, provisioning_type: "thin", fstype: "ext4"}]}
+#      slave: {vms_by_az: {a: 1, b: 0, c: 0}, flavor: {num_cpus: "2", memory_mb: "2048"}, version: "{{jenkins_master.docker.version | regex_replace('[\\.-]', '_') | default('')}}", auto_volumes: [{mountpoint: "{{docker_data_root_dir}}", "volume_size": 16, provisioning_type: "thin", fstype: "ext4"}]}
 _cloud_type: *cloud_type
 _dns_nameserver_zone: *dns_nameserver_zone

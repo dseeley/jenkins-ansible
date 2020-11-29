@@ -13,24 +13,34 @@ jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_slave:
   swarm_version: "3.24"
+  docker_network:
+    network_mode: host      # e.g.: host or bridge
+#    name: "jenkins"
+#    cidr: "10.50.0.0/24"
 
 jenkins_master:
   docker:
     repo_dockerfile_path: "/11/debian/buster/hotspot/Dockerfile"    # From: https://github.com/jenkinsci/docker.git
     version: "latest-lts"                                           # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
   workspace_dir: "{{jenkins_home_dir}}/jobs"
-#  docker_network:
+  docker_network:
+    network_mode: host      # e.g.: host or bridge
 #    name: "jenkins"
 #    cidr: "10.50.0.0/24"
   plugins:
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"
     - "configuration-as-code:latest"
+    - "extended-choice-parameter:latest"
+    - "git-parameter:latest"
     - "parameterized-scheduler:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "swarm:latest"
     - "workflow-aggregator:latest"
+  casc_file:
+    local: "/tmp/jenkins_casc.yml"
+    remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
   casc_config:
     jenkins:
       systemMessage: 'Test server'
@@ -41,6 +51,9 @@ jenkins_master:
           users:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
+    unclassified:
+      globalDefaultFlowDurabilityLevel:
+        durabilityHint: PERFORMANCE_OPTIMIZED
 #    credentials:
 #      system:
 #        domainCredentials:

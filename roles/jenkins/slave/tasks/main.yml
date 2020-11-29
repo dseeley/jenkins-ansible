@@ -10,9 +10,8 @@
       become: yes
       docker_network:
         name: jenkins
-        ipam_config:
-          - subnet: "{{jenkins_slave.docker_network.cidr}}"
-      when: jenkins_slave.docker_network.cidr is defined
+        ipam_config: "[{%- if jenkins_slave.docker_network.cidr is defined -%}{'subnet': jenkins_slave.docker_network.cidr}{%- endif -%}]"
+      when: jenkins_slave.docker_network.name is defined
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -75,7 +74,9 @@
         recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart_policy: "always"
-        network_mode: host
+        network_mode: "{{ jenkins_master.docker_network.network_mode | default('host') }}"
+        networks_cli_compatible: yes
+        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
         mounts:
           - target: "{{jenkins_home_dir}}"
             source: "jenkins_home"

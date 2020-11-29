@@ -9,7 +9,7 @@ boto3 = "*"
 boto = "*"
 botocore = "*"
 requests = "*"
-ansible = "=2.9"
+ansible = "==2.9.*"
 jmespath = "*"
 dnspython = "*"
 google-auth = "*"
@@ -24,3 +24,6 @@ PyVmomi = "*"
 
 [dev-packages]
 
+
+[requires]
+python_version = "3"
