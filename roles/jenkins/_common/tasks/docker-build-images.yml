@@ -7,21 +7,21 @@
     suffix: DockerBuildTEMP
   register: tmp_build_dir
 
-
 - name: jenkins/docker-build-images | Template out the Dockerfiles
   become: yes
-  template:
-    src: "{{item}}"
-    dest: "{{ tmp_build_dir.path }}/{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
-  with_fileglob: "{{ role_path }}/templates/Dockerfiles/*"
+  copy:
+    content: "{{ build_dockerfiles[item] }}"
+    dest: "{{ tmp_build_dir.path }}/{{ item }}"
+    mode: 0440
+  with_items: "{{ build_dockerfiles }}"
+  register: r__copy_dockerfiles
 
-
-- name: jenkins/docker-build-images | build Docker image
+- name: jenkins/docker-build-images | build Docker images
   become: yes
   docker_image:
     source: build
     build:
-      dockerfile: "{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
+      dockerfile: "{{ item | basename }}"
       args:
         uid: "{{ jenkins_uid }}"
         gid: "{{ jenkins_gid }}"
@@ -29,11 +29,10 @@
       pull: yes
       nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
       rm: yes
-      path: "{{ tmp_build_dir.path }}"
+      path: "{{ item | dirname }}"
     force_source: true
-    name: "{{ item | basename | regex_replace('^(.*?)\\.j2', '\\1') }}"
-  register: r__docker_image
-  with_fileglob: "{{ role_path }}/templates/Dockerfiles/*"      # Note with_fileglob only works on localhost - can't look for remote files
+    name: "{{ item | basename }}"
+  with_items: "{{ r__copy_dockerfiles.results | json_query(\"[].dest\") }}"
 
 - name: jenkins/docker-build-images | Delete temporary build directory
   become: yes

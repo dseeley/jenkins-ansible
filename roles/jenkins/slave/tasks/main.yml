@@ -62,7 +62,7 @@
           JENKINS_USER: "{{jenkins_admin_username}}"
           JENKINS_PASS: "{{jenkins_admin_password}}"
           JENKINS_NAME: "{{inventory_hostname}}"
-          JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['master'][0] }}.{{ cluster_vars.dns_user_domain }}{% else %}{{ hostvars[groups['master'][0]]['ansible_host'] }}{% endif %}:8080"
+          JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['master'][0] }}.{{ cluster_vars.dns_user_domain }}{% else %}{{ hostvars[groups['master'][0]]['ansible_host'] }}{% endif %}:80"
           JENKINS_EXECUTORS: "{{ansible_processor_vcpus * 2}}"
         cleanup: no
         detach: yes
@@ -76,7 +76,7 @@
         restart_policy: "always"
         network_mode: "{{ jenkins_master.docker_network.network_mode | default('host') }}"
         networks_cli_compatible: yes
-        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        networks: "[{%- if jenkins_slave.docker_network.network_mode=='bridge' and jenkins_slave.docker_network.name is defined -%}{'name': '{{jenkins_slave.docker_network.name}}'}{%- endif -%}]"
         mounts:
           - target: "{{jenkins_home_dir}}"
             source: "jenkins_home"

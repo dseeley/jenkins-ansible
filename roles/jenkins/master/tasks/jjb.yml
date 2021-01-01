@@ -30,7 +30,7 @@
       allow_duplicates=False
 
       [jenkins]
-      url=http://127.0.0.1:8080/
+      url=http://127.0.0.1:80/
       query_plugins_info=False
       user={{ jenkins_admin_username }}
       password={{ jenkins_admin_password }}
@@ -40,7 +40,7 @@
 - name: JJB | Load the jobs files into 'jjb_jobs' fact
   set_fact:
     jjb_jobs: "{{ jjb_jobs | default([]) + [{(item|basename): ((lookup('template', item) | from_yaml) ) }] }}"
-  with_fileglob: "{{ playbook_dir }}/group_vars/{{ clusterid }}/jjb_jobs/*"
+  with_fileglob: "{{ playbook_dir }}/cluster_defs/{{ clusterid }}/jjb_jobs/*"
 
 - name: JJB | Copy folder jobs to the JJB directory
   become: yes

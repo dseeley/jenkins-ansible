@@ -13,7 +13,7 @@
       docker_network:
         name: jenkins
         ipam_config: "[{%- if jenkins_master.docker_network.cidr is defined -%}{'subnet': jenkins_master.docker_network.cidr}{%- endif -%}]"
-      when: jenkins_master.docker_network.name is defined
+      when: "jenkins_master.docker_network.network_mode=='bridge' and jenkins_master.docker_network.name is defined"
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -142,8 +142,8 @@
         restart_policy: "always"
         network_mode: "{{ jenkins_master.docker_network.network_mode | default('host') }}"
         networks_cli_compatible: yes
-        networks: "[{%- if jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
-        ports: ["8080:8080", "50000:50000"]
+        networks: "[{%- if jenkins_master.docker_network.network_mode=='bridge' and jenkins_master.docker_network.name is defined -%}{'name': '{{jenkins_master.docker_network.name}}'}{%- endif -%}]"
+        ports: ["80:8080", "443:8443", "50000:50000"]
         env:
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"       #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
@@ -160,7 +160,7 @@
 
     - name: jenkins Docker | Wait for Jenkins API to become available
       uri:
-        url: "http://127.0.0.1:8080/api"
+        url: "http://127.0.0.1:80/api"
         status_code: 200
       register: r__uri
       until: r__uri.status == 200

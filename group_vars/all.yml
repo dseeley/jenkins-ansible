@@ -1,0 +1,5 @@
+---
+
+merge_dict_vars_list:
+  - "./cluster_defs/{{ clusterid }}/"
+  - "./cluster_defs/{{ clusterid }}/build_dockerfiles/"
