@@ -43,6 +43,7 @@
         group: "{{ jenkins_gid }}"
       vars:
         casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+      register: r__copy_jcasc
 
     - name: jenkins Docker | augment the dockerfile
       become: yes
@@ -139,6 +140,7 @@
         image: "{{r__docker_image_info.images[0].Id}}"
         recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
+        restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
         restart_policy: "always"
         network_mode: "{{ jenkins_master.docker_network.network_mode | default('host') }}"
         networks_cli_compatible: yes

@@ -72,14 +72,14 @@ jenkins_master:
                   secret: "FAKEPASSWD"
               - basicSSHUserPrivateKey:
                   scope: GLOBAL
-                  id: SSH_KEY_DPSTEST_ESXI_DOUGALAB_DEV
+                  id: SSH_KEY_ESXIFREE_DOUGALAB_DEV
                   username: ansible
                   privateKeySource:
                     directEntry:
                       privateKey: "FAKEPASSWD"
               - basicSSHUserPrivateKey:
                   scope: GLOBAL
-                  id: SSH_KEY_DPSTEST_ESXI_DOUGALAB_PROD
+                  id: SSH_KEY_ESXIFREE_DOUGALAB_PROD
                   username: ansible
                   privateKeySource:
                     directEntry:
