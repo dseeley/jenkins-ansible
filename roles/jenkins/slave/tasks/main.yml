@@ -63,7 +63,7 @@
           JENKINS_PASS: "{{jenkins_admin_password}}"
           JENKINS_NAME: "{{inventory_hostname}}"
           JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['master'][0] }}.{{ cluster_vars.dns_user_domain }}{% else %}{{ hostvars[groups['master'][0]]['ansible_host'] }}{% endif %}:80"
-          JENKINS_EXECUTORS: "{{ansible_processor_vcpus * 2}}"
+          JENKINS_EXECUTORS: "{{ansible_processor_vcpus * jenkins_slave.numExecutorsMultiplier}}"
         cleanup: no
         detach: yes
         name: "jenkins_swarm_agent"

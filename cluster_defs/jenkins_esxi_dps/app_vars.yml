@@ -12,6 +12,7 @@ jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_slave:
   swarm_version: "3.24"
+  numExecutorsMultiplier: 3     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   docker_network:
     network_mode: bridge      # e.g.: host or bridge
     name: "jenkins"
@@ -33,10 +34,12 @@ jenkins_master:
     - "extended-choice-parameter:latest"
     - "git-parameter:latest"
     - "parameterized-scheduler:latest"
+    - "permissive-script-security:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "swarm:latest"
     - "workflow-aggregator:latest"
+  jcasc_numExecutorsMultiplier: 3     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
     local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
@@ -64,22 +67,25 @@ jenkins_master:
                   password: "FAKEPASSWD"
               - string:
                   scope: GLOBAL
-                  id: VAULT_PASSWORD_DEV
-                  secret: "FAKEPASSWD"
-              - string:
-                  scope: GLOBAL
-                  id: VAULT_PASSWORD_PROD
+                  id: VAULT_PASSWORD_SANDBOX
                   secret: "FAKEPASSWD"
               - basicSSHUserPrivateKey:
                   scope: GLOBAL
-                  id: SSH_KEY_ESXIFREE_DOUGALAB_DEV
+                  id: SSH_KEY_ESXIFREE_DOUGALAB_SANDBOX
                   username: ansible
                   privateKeySource:
                     directEntry:
                       privateKey: "FAKEPASSWD"
               - basicSSHUserPrivateKey:
                   scope: GLOBAL
-                  id: SSH_KEY_ESXIFREE_DOUGALAB_PROD
+                  id: SSH_KEY_AWS_EU-WEST-1_SANDBOX
+                  username: ansible
+                  privateKeySource:
+                    directEntry:
+                      privateKey: "FAKEPASSWD"
+              - basicSSHUserPrivateKey:
+                  scope: GLOBAL
+                  id: SSH_KEY_GCP_EUROPE-WEST1_SANDBOX
                   username: ansible
                   privateKeySource:
                     directEntry:

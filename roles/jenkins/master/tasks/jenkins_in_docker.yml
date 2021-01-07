@@ -42,7 +42,8 @@
         owner: "{{ jenkins_uid }}"
         group: "{{ jenkins_gid }}"
       vars:
-        casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+        _casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+        casc_config: "{{_casc_config | combine({'jenkins': {'numExecutors': ansible_processor_vcpus * jenkins_master.jcasc_numExecutorsMultiplier}}, recursive=True)}}"
       register: r__copy_jcasc
 
     - name: jenkins Docker | augment the dockerfile
@@ -148,7 +149,7 @@
         ports: ["80:8080", "443:8443", "50000:50000"]
         env:
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
-          JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"       #Needed for Jenkins Job Builder - it doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+          JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=true"
         mounts:
           - target: "{{jenkins_home_dir}}"
             source: "jenkins_home"

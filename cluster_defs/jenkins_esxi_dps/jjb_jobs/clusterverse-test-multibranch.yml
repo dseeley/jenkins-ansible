@@ -1,14 +1,14 @@
 ---
 
 job:
-  name: 'clusterverse/clusterverse_test-deploy-multibranch'
+  name: 'clusterverse/clusterverse-test-multibranch'
   project-type: multibranch
   periodic-folder-trigger: 4h
   number-to-keep: 5
   days-to-keep: 5
   scm:
     - github:
-        repo: 'clusterverse_test'
+        repo: 'clusterverse'
         repo-owner: 'dseeley'
         credentials-id: 'GITHUB_SVC_USER'
         discover-tags: true
@@ -21,4 +21,4 @@ job:
             - suppress-scm-triggering: true
         build-strategies:
           - skip-initial-build: true
-  script-path: jenkinsfiles/Jenkinsfile_deploy
+  script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_testsuite

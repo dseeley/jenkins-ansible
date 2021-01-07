@@ -18,7 +18,7 @@ job:
       - git:
           url: https://github.com/dseeley/clusterverse.git
           branches:
-            - dps_exsi
+            - "*/dps_esxi"
           credentials-id: GITHUB_SVC_USER
           timeout: 20
-    script-path: jenkinsfiles/Jenkinsfile_release_tag
+    script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_release_tag

@@ -1,0 +1,25 @@
+---
+
+job:
+  name: 'clusterverse/clusterverse-ops'
+  project-type: pipeline
+  display-name: 'clusterverse-ops'
+  description: ''
+  concurrent: true
+  disabled: false
+  workspace: "{{ jenkins_master.workspace_dir }}/clusterverse-ops"
+  properties:
+    - build-discarder:
+        days-to-keep: 5
+        num-to-keep: 10
+        artifact-days-to-keep: 10
+        artifact-num-to-keep: 10
+  pipeline-scm:
+    scm:
+      - git:
+          url: https://github.com/dseeley/clusterverse.git
+          branches:
+            - "*/dps_esxi_RC"
+          credentials-id: GITHUB_SVC_USER
+          timeout: 20
+    script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_ops
