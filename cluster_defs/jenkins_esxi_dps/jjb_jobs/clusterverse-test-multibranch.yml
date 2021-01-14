@@ -21,4 +21,4 @@ job:
             - suppress-scm-triggering: true
         build-strategies:
           - skip-initial-build: true
-  script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_testsuite
+  script-path: jenkinsfiles/Jenkinsfile_testsuite

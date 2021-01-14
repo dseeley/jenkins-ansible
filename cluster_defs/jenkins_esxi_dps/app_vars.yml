@@ -38,6 +38,7 @@ jenkins_master:
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "swarm:latest"
+    - "uno-choice:latest"
     - "workflow-aggregator:latest"
   jcasc_numExecutorsMultiplier: 3     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:

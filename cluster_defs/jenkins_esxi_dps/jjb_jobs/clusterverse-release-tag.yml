@@ -21,4 +21,4 @@ job:
             - "*/dps_esxi"
           credentials-id: GITHUB_SVC_USER
           timeout: 20
-    script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_release_tag
+    script-path: jenkinsfiles/Jenkinsfile_release_tag

@@ -17,9 +17,9 @@ job:
   pipeline-scm:
     scm:
       - git:
-          url: https://github.com/dseeley/clusterverse.git
+          url: https://github.com/dseeley/clusterverse_test.git
           branches:
-            - "*/dps_esxi_RC"
+            - master
           credentials-id: GITHUB_SVC_USER
           timeout: 20
-    script-path: EXAMPLE/jenkinsfiles/Jenkinsfile_exec_ops
+    script-path: jenkinsfiles/Jenkinsfile_ops
