@@ -13,10 +13,10 @@
     content: "{{ build_dockerfiles[item] }}"
     dest: "{{ tmp_build_dir.path }}/{{ item }}"
     mode: 0440
-  with_items: "{{ build_dockerfiles }}"
+  with_items: "{{ build_dockerfiles | default([]) }}"
   register: r__copy_dockerfiles
 
-- name: jenkins/docker-build-images | build Docker images
+- name: jenkins/docker-build-images | Start building Docker build-images
   become: yes
   docker_image:
     source: build
@@ -33,6 +33,19 @@
     force_source: true
     name: "{{ item | basename }}"
   with_items: "{{ r__copy_dockerfiles.results | json_query(\"[].dest\") }}"
+  register: r__docker_image
+  async: 7200
+  poll: 0
+
+- name: jenkins/docker-build-images | Wait for Docker build-images to finish
+  become: yes
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: async_jobs
+  until: async_jobs.finished
+  delay: 10
+  retries: 180
+  with_items: "{{r__docker_image.results}}"
 
 - name: jenkins/docker-build-images | Delete temporary build directory
   become: yes

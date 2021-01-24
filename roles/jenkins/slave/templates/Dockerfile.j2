@@ -20,10 +20,10 @@ RUN apt-get update \
   && pip3 install pipenv \
   && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
   && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
-  && apt-get update && apt-get install -y --no-install-recommends docker-ce
+  && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
 
-# Change the docker group ID to the same as the host so that non-root users can access the socket via its group membership.
-RUN groupmod -g {{docker_group_id}} docker
+# Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
+RUN ((getent group docker && groupmod -g {{host_docker_gid}} docker) || addgroup docker --gid {{host_docker_gid}})
 
 USER {{jenkins_username}}
 

@@ -10,6 +10,10 @@ jenkins_username: jenkins
 jenkins_uid: 386
 jenkins_gid: "{{jenkins_uid}}"
 
+jenkins_ui:
+  skin_color: "grey"
+  content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
+
 jenkins_slave:
   swarm_version: "3.24"
   numExecutorsMultiplier: 3     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
@@ -33,20 +37,22 @@ jenkins_master:
     - "configuration-as-code:latest"
     - "extended-choice-parameter:latest"
     - "git-parameter:latest"
+    - "login-theme:latest"
     - "parameterized-scheduler:latest"
     - "permissive-script-security:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
+    - "simple-theme:latest"
     - "swarm:latest"
     - "uno-choice:latest"
     - "workflow-aggregator:latest"
-  jcasc_numExecutorsMultiplier: 3     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  jcasc_numExecutorsMultiplier: 1     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
     local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
   casc_config:
     jenkins:
-      systemMessage: 'dougacicd server'
+      systemMessage: "This is the {{jenkins_ui.content}} Jenkins"
       authorizationStrategy: "loggedInUsersCanDoAnything"
       securityRealm:
         local:
@@ -55,6 +61,23 @@ jenkins_master:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
     unclassified:
+      login-theme-plugin:
+        header: "{{jenkins_ui.content}}"
+        useDefaultTheme: true
+      simple-theme-plugin:
+        elements:
+          - cssText:
+              text: |
+                #header { background: linear-gradient(110deg, {{jenkins_ui.skin_color}} 40%, #000 40%);}
+                #jenkins-home-link:after {
+                  content: '{{jenkins_ui.content}}';
+                  vertical-align: middle;
+                  padding-left: 10px;
+                  mix-blend-mode: difference;
+                  font-size: 20px;
+                  font-weight: bold;
+                  font-style: italic;
+                }
       globalDefaultFlowDurabilityLevel:
         durabilityHint: PERFORMANCE_OPTIMIZED
     credentials:
@@ -70,24 +93,3 @@ jenkins_master:
                   scope: GLOBAL
                   id: VAULT_PASSWORD_SANDBOX
                   secret: "FAKEPASSWD"
-              - basicSSHUserPrivateKey:
-                  scope: GLOBAL
-                  id: SSH_KEY_ESXIFREE_DOUGALAB_SANDBOX
-                  username: ansible
-                  privateKeySource:
-                    directEntry:
-                      privateKey: "FAKEPASSWD"
-              - basicSSHUserPrivateKey:
-                  scope: GLOBAL
-                  id: SSH_KEY_AWS_EU-WEST-1_SANDBOX
-                  username: ansible
-                  privateKeySource:
-                    directEntry:
-                      privateKey: "FAKEPASSWD"
-              - basicSSHUserPrivateKey:
-                  scope: GLOBAL
-                  id: SSH_KEY_GCP_EUROPE-WEST1_SANDBOX
-                  username: ansible
-                  privateKeySource:
-                    directEntry:
-                      privateKey: "FAKEPASSWD"

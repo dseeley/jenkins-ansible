@@ -10,8 +10,8 @@
       become: yes
       docker_network:
         name: jenkins
-        ipam_config: "[{%- if jenkins_slave.docker_network.cidr is defined -%}{'subnet': jenkins_slave.docker_network.cidr}{%- endif -%}]"
-      when: jenkins_slave.docker_network.name is defined
+        ipam_config: "{%- if jenkins_slave.docker_network.cidr is defined -%}[{'subnet': '{{jenkins_slave.docker_network.cidr}}'}]{%- else-%}[]{%- endif -%}"
+      when: "jenkins_slave.docker_network.network_mode=='bridge' and jenkins_slave.docker_network.name is defined"
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -33,7 +33,7 @@
       with_items:
         - "Dockerfile.j2"
       vars:
-        docker_group_id: "{{getent_group['docker'][1]}}"
+        host_docker_gid: "{{getent_group['docker'][1]}}"
 
     - name: jenkins Docker | Build the jenkins Docker image
       become: yes
@@ -63,7 +63,7 @@
           JENKINS_PASS: "{{jenkins_admin_password}}"
           JENKINS_NAME: "{{inventory_hostname}}"
           JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['master'][0] }}.{{ cluster_vars.dns_user_domain }}{% else %}{{ hostvars[groups['master'][0]]['ansible_host'] }}{% endif %}:80"
-          JENKINS_EXECUTORS: "{{ansible_processor_vcpus * jenkins_slave.numExecutorsMultiplier}}"
+          JENKINS_EXECUTORS: "{{ (((ansible_memtotal_mb|int / 1024) + (ansible_processor_vcpus * 2)) * jenkins_slave.numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator == ((2*Number of vCPUs) + (GB Ram)) * scaling factor
         cleanup: no
         detach: yes
         name: "jenkins_swarm_agent"

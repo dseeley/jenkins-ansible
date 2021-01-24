@@ -1,26 +1,40 @@
 ---
 
-- name: Deploy the cluster
+- name: clusterverse | Deploy the cluster
   hosts: localhost
   connection: local
   gather_facts: no
   tasks:
     - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy install -r requirements.yml", tags: ["always"] }
 
-    - { include_role: { name: "clusterverse/clean", apply: { tags: ["clusterverse_clean"]} }, tags: ["clusterverse_clean"], when: "clean is defined"  }
+    - { include_role: { name: "clusterverse/clean", apply: { tags: ["clusterverse_clean"]} }, tags: ["clusterverse_clean"], when: "clean is defined" }
     - { include_role: { name: "clusterverse/create", apply: { tags: ["clusterverse_create"]} }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse/dynamic_inventory", apply: { tags: ["clusterverse_dynamic_inventory"]} }, tags: ["clusterverse_dynamic_inventory"] }
+    - { name: "clusterverse | Copy ansible_ssh_private_key_file", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file}} dest='id_rsa_ansible_ssh_private_key_file' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file is defined", no_log: yes, tags: ["always"] }
+    - { name: "clusterverse | Copy bastion sshkey", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key}} dest='id_rsa_bastion' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key is defined", no_log: yes, tags: ["always"] }
 
-- name: Configure the cluster
+- name: clusterverse | Wait for SSH connections
   hosts: all
+  gather_facts: no
+  tasks: [ {wait_for_connection: "", tags: ["always"] } ]
+
+- name: clusterverse | Configure the cluster
+  hosts: all
+  tasks: [ { include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] } ]
+
+- name: Qualys/Tenable Agent install
+  hosts: all
+  become: yes
   tasks:
-    - { include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] }
+    - { include_role: { name: "crs-qualys-agent-ansible", apply: { tags: ["qualys_agent"]} }, tags: ["qualys_agent"], when: "qualys_agent_install is defined and qualys_agent_install|bool" }
+    - { include_role: { name: "crs-tenable-agent-ansible", apply: { tags: ["tenable-agent"]} }, tags: ["tenable-agent"], when: "tenable_agent_install is defined and tenable_agent_install|bool" }
+
 
 ###### Application roles
 - name: Jenkins common tasks
   hosts: all
   tasks:
-    - { name: remove cloud-init, become: yes, apt: {name: "cloud-init", state: absent} }
+    - { include_role: { name: "clusterverse/_dependencies", apply: {tags: ["always"]} }, tags: ["always"] }             #If we --skip-tags=clusterverse_config, this will ensure the variables from /cluster_defs are loaded.
     - { include_role: { name: "jenkins/_common", tasks_from: "common", apply: {tags: ["jenkins_common"]} }, tags: ["jenkins_common"] }
 
 - name: Jenkins master tasks
@@ -34,8 +48,8 @@
     - { include_role: { name: "jenkins/slave", apply: {tags: ["jenkins_slave"]} }, tags: ["jenkins_slave"] }
 ######
 
-- name: Perform cluster readiness operations
+
+- name: clusterverse | Perform cluster readiness operations
   hosts: localhost
   connection: local
-  tasks:
-    - { include_role: { name: "clusterverse/readiness", apply: { tags: ["clusterverse_readiness"]} }, tags: ["clusterverse_readiness"] }
+  tasks: [ { include_role: { name: "clusterverse/readiness", apply: { tags: ["clusterverse_readiness"]} }, tags: ["clusterverse_readiness"] } ]

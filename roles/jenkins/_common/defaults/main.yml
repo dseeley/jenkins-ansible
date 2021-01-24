@@ -13,6 +13,7 @@ jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_slave:
   swarm_version: "3.24"
+  numExecutorsMultiplier: 1     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   docker_network:
     network_mode: host      # e.g.: host or bridge
 #    name: "jenkins"
@@ -34,12 +35,14 @@ jenkins_master:
     - "extended-choice-parameter:latest"
     - "git-parameter:latest"
     - "parameterized-scheduler:latest"
+    - "permissive-script-security:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "swarm:latest"
     - "workflow-aggregator:latest"
+  jcasc_numExecutorsMultiplier: 0.5     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
-    local: "/tmp/jenkins_casc.yml"
+    local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
   casc_config:
     jenkins:

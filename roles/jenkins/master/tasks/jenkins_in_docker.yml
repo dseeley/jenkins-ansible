@@ -12,7 +12,7 @@
       become: yes
       docker_network:
         name: jenkins
-        ipam_config: "[{%- if jenkins_master.docker_network.cidr is defined -%}{'subnet': jenkins_master.docker_network.cidr}{%- endif -%}]"
+        ipam_config: "{%- if jenkins_master.docker_network.cidr is defined -%}[{'subnet': '{{jenkins_master.docker_network.cidr}}'}]{%- else-%}[]{%- endif -%}"
       when: "jenkins_master.docker_network.network_mode=='bridge' and jenkins_master.docker_network.name is defined"
 
     - name: jenkins Docker | Create temporary build directory
@@ -42,9 +42,10 @@
         owner: "{{ jenkins_uid }}"
         group: "{{ jenkins_gid }}"
       vars:
+        _base_casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to pre-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
+        __num_executors: "{{ (((ansible_memtotal_mb|int / 1024) + (ansible_processor_vcpus * 2)) * jenkins_master.jcasc_numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == ((2*Number of vCPUs) + (GB Ram)) * scaling factor
+        _casc_config_plus_numExecutors: "{{_base_casc_config | combine({'jenkins': {'numExecutors': __num_executors }}, recursive=true)}}"
         __resourceRoot_url: "http://{%- if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' -%} {{ansible_hostname}}.{{cluster_vars.dns_user_domain | regex_replace('^(.*?)\\.?$','\\1')}} {%- else -%} {{ansible_default_ipv4.address}} {%- endif -%}"
-        _base_casc_config: "{{jenkins_master.casc_config}}"     # Note: We need to re-template {{jenkins_master.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
-        _casc_config_plus_numExecutors: "{{_base_casc_config | combine({'jenkins': {'numExecutors': ansible_processor_vcpus * jenkins_master.jcasc_numExecutorsMultiplier}}, recursive=true)}}"
         _casc_config_plus_numExecutors_plus_resourceRoot_url: "{{_casc_config_plus_numExecutors | combine({'unclassified': {'resourceRoot': {'url': __resourceRoot_url}}}, recursive=true)}}"
       register: r__copy_jcasc
 
@@ -52,14 +53,10 @@
       become: yes
       blockinfile:
         path: "{{ tmp_build_dir.path }}{{jenkins_master.docker.repo_dockerfile_path}}"
-        insertbefore: '^ENTRYPOINT'
         block: |
           USER root
           ENV PIPENV_VENV_IN_PROJECT=true
           ENV CASC_JENKINS_CONFIG "{{ jenkins_master.casc_file.remote | dirname }}"
-
-          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool
-          RUN jenkins-plugin-cli --verbose --plugins {{jenkins_master.plugins | join(' ') }}
 
           ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
           RUN apt-get update \
@@ -68,13 +65,18 @@
           && pip3 install pipenv \
           && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
           && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
-          && apt-get update && apt-get install -y --no-install-recommends docker-ce
+          && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
 
-          # Change the docker group ID to the same as the host so that non-root users can access the socket via its group membership.
-          # Note: Cannot `usermod -a -G docker jenkins` the Jenkins user to the docker group here, because the container is already running as the jenkins user.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
-          RUN groupmod -g {{docker_group_id}} docker
+          # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
+          RUN ((getent group docker && groupmod -g {{host_docker_gid}} docker) || addgroup docker --gid {{host_docker_gid}}) && usermod -a -G docker jenkins
+
+          USER ${user}
+
+          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems in GCP for some reason.  Old install-plugins.sh still works for now...
+          # RUN jenkins-plugin-cli --verbose --plugins {{ jenkins_master.plugins | join(' ') }}
+          RUN /usr/local/bin/install-plugins.sh {{ jenkins_master.plugins | join(' ') }}
       vars:
-        docker_group_id: "{{getent_group['docker'][1]}}"
+        host_docker_gid: "{{getent_group['docker'][1]}}"
 
     - name: jenkins Docker | remove the JENKINS_SHA check
       become: yes
@@ -115,6 +117,7 @@
             uid: "{{ jenkins_uid }}"
             gid: "{{ jenkins_gid }}"
             JENKINS_VERSION: "{{ jenkins_version }}"
+#            PLUGIN_CLI_URL: "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.5.0/jenkins-plugin-manager-2.5.0.jar"
           network: host
           pull: yes
           nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.

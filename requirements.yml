@@ -1,5 +1,6 @@
 ---
 
-- src: https://github.com/dseeley/clusterverse
-  version: dps_esxi_RC
-  name: clusterverse
+roles:
+  - name: clusterverse
+    src: https://github.com/dseeley/clusterverse
+    version: dps_esxi

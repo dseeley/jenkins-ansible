@@ -2,3 +2,4 @@
 
 dependencies:
   - role: '_common'
+    when: jenkins_admin_username is not defined

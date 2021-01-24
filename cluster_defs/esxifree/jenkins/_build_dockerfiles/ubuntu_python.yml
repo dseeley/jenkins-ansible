@@ -11,7 +11,7 @@ build_dockerfiles:
 
     ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
     RUN apt-get update \
-        && apt-get install -y ansible git \
+        && apt-get install -y ansible git iproute2 \
               python3-boto \
               python3-boto3 \
               python3-botocore \

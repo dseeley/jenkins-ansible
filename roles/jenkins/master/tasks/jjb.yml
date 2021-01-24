@@ -40,7 +40,7 @@
 - name: JJB | Load the jobs files into 'jjb_jobs' fact
   set_fact:
     jjb_jobs: "{{ jjb_jobs | default([]) + [{(item|basename): ((lookup('template', item) | from_yaml) ) }] }}"
-  with_fileglob: "{{ playbook_dir }}/cluster_defs/{{ clusterid }}/jjb_jobs/*"
+  with_fileglob: "{{ playbook_dir }}/cluster_defs/{{ cloud_type }}/{{ clusterid }}/_jjb_jobs/*"
 
 - name: JJB | Copy folder jobs to the JJB directory
   become: yes
