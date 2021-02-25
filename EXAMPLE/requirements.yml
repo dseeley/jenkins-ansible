@@ -4,3 +4,6 @@ roles:
   - name: clusterverse
     src: https://github.com/dseeley/clusterverse
     version: dps_esxi
+  - name: jenkins
+    src: https://github.com/dseeley/jenkins-ansible
+    version: master

@@ -22,13 +22,6 @@
   hosts: all
   tasks: [ { include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] } ]
 
-- name: Qualys/Tenable Agent install
-  hosts: all
-  become: yes
-  tasks:
-    - { include_role: { name: "crs-qualys-agent-ansible", apply: { tags: ["qualys_agent"]} }, tags: ["qualys_agent"], when: "qualys_agent_install is defined and qualys_agent_install|bool" }
-    - { include_role: { name: "crs-tenable-agent-ansible", apply: { tags: ["tenable-agent"]} }, tags: ["tenable-agent"], when: "tenable_agent_install is defined and tenable_agent_install|bool" }
-
 
 ###### Application roles
 - name: Jenkins common tasks

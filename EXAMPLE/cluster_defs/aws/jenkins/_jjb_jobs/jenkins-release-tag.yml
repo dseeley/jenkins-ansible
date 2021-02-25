@@ -1,13 +1,13 @@
 ---
 
 job:
-  name: 'clusterverse/clusterverse-release-tag'
+  name: 'jenkins/jenkins-release-tag'
   project-type: pipeline
-  display-name: 'clusterverse-release-tag'
+  display-name: 'jenkins-release-tag'
   description: ''
   concurrent: true
   disabled: false
-  workspace: "{{ jenkins_master.workspace_dir }}/clusterverse-release"
+  workspace: "{{ jenkins_master.workspace_dir }}/jenkins-release"
   build-discarder:
     days-to-keep: 5
     num-to-keep: 10
@@ -16,9 +16,9 @@ job:
   pipeline-scm:
     scm:
       - git:
-          url: https://github.com/dseeley/clusterverse.git
+          url: https://github.com/dseeley/jenkins-ansible.git
           branches:
-            - "*/dps_esxi"
+            - "*/master"
           credentials-id: GITHUB_SVC_USER
           timeout: 20
     script-path: jenkinsfiles/Jenkinsfile_release_tag
