@@ -30,7 +30,8 @@
     - name: jenkins Docker | git clone Jenkins docker build repo from github
       become: yes
       git:
-        repo: https://github.com/jenkinsci/docker.git
+        repo: "{{jenkins_master.docker.repo}}"
+        version: "{{jenkins_master.docker.repo_version}}"
         dest: "{{ tmp_build_dir.path }}"
 
     - name: jenkins Docker | create JCasC config file
@@ -102,7 +103,7 @@
       register: r__xml
 
     - set_fact:
-        jenkins_version: "{%-if jenkins_master.docker.version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_master.docker.version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_master.docker.version}}{%- endif -%}"
+        jenkins_version: "{%-if jenkins_master.docker.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_master.docker.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_master.docker.war_version}}{%- endif -%}"
       vars:
         _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
         _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"

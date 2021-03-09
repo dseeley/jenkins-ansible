@@ -11,22 +11,28 @@ jenkins_username: jenkins
 jenkins_uid: 386
 jenkins_gid: "{{jenkins_uid}}"
 
+jenkins_ui:
+  skin_color: "grey"
+  content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
+
 jenkins_slave:
-  swarm_version: "3.24"
-  numExecutorsMultiplier: 1     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  swarm_version: "3.25"
+  numExecutorsMultiplier: 3     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   docker_network:
-    network_mode: host      # e.g.: host or bridge
-#    name: "jenkins"
+    network_mode: bridge      # e.g.: host or bridge
+    name: "jenkins"
 #    cidr: "10.50.0.0/24"
 
 jenkins_master:
   docker:
+    repo: "https://github.com/jenkinsci/docker.git"
+    repo_version: "HEAD"
     repo_dockerfile_path: "/11/debian/buster/hotspot/Dockerfile"    # From: https://github.com/jenkinsci/docker.git
-    version: "latest-lts"                                           # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
+    war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
   workspace_dir: "{{jenkins_home_dir}}/jobs"
   docker_network:
-    network_mode: host      # e.g.: host or bridge
-#    name: "jenkins"
+    network_mode: bridge      # e.g.: host or bridge
+    name: "jenkins"
 #    cidr: "10.50.0.0/24"
   plugins:
     - "basic-branch-build-strategies:latest"
@@ -34,19 +40,22 @@ jenkins_master:
     - "configuration-as-code:latest"
     - "extended-choice-parameter:latest"
     - "git-parameter:latest"
+    - "login-theme:latest"
     - "parameterized-scheduler:latest"
     - "permissive-script-security:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
+    - "simple-theme:latest"
     - "swarm:latest"
+    - "uno-choice:latest"
     - "workflow-aggregator:latest"
-  jcasc_numExecutorsMultiplier: 0.5     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  jcasc_numExecutorsMultiplier: 1     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
     local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
   casc_config:
     jenkins:
-      systemMessage: 'Test server'
+      systemMessage: "This is the {{jenkins_ui.content}} Jenkins"
       authorizationStrategy: "loggedInUsersCanDoAnything"
       securityRealm:
         local:
@@ -55,6 +64,23 @@ jenkins_master:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
     unclassified:
+      login-theme-plugin:
+        header: "{{jenkins_ui.content}}"
+        useDefaultTheme: true
+      simple-theme-plugin:
+        elements:
+          - cssText:
+              text: |
+                #header { background: linear-gradient(110deg, {{jenkins_ui.skin_color}} 40%, #000 40%);}
+                #jenkins-home-link:after {
+                  content: '{{jenkins_ui.content}}';
+                  vertical-align: middle;
+                  padding-left: 10px;
+                  mix-blend-mode: difference;
+                  font-size: 20px;
+                  font-weight: bold;
+                  font-style: italic;
+                }
       globalDefaultFlowDurabilityLevel:
         durabilityHint: PERFORMANCE_OPTIMIZED
 #    credentials:
