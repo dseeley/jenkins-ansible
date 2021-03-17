@@ -56,6 +56,7 @@ jenkins_master:
   casc_config:
     jenkins:
       systemMessage: "This is the {{jenkins_ui.content}} Jenkins"
+      noUsageStatistics: true
       authorizationStrategy: "loggedInUsersCanDoAnything"
       securityRealm:
         local:
@@ -64,6 +65,10 @@ jenkins_master:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
     unclassified:
+      location:
+        adminAddress: "{{ jenkins_ui.email | default(omit) }}"
+      gitHubConfiguration:
+        apiRateLimitChecker: ThrottleOnOver   #ThrottleForNormalize, ThrottleOnOver, NoThrottle
       login-theme-plugin:
         header: "{{jenkins_ui.content}}"
         useDefaultTheme: true
