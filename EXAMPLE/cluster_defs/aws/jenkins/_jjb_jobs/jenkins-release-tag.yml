@@ -7,7 +7,7 @@ job:
   description: ''
   concurrent: true
   disabled: false
-  workspace: "{{ jenkins_master.workspace_dir }}/jenkins-release"
+  workspace: "{{ jenkins_controller.workspace_dir }}/jenkins-release"
   build-discarder:
     days-to-keep: 5
     num-to-keep: 10

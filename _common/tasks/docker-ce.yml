@@ -17,7 +17,7 @@
         content: |
           {
             "data-root": "{{docker_data_root_dir}}",
-            "iptables": {%- if jenkins_master.docker_network.network_mode == 'host' -%}false{%- else -%}true{%- endif -%}
+            "iptables": {%- if jenkins_controller.docker_network.network_mode == 'host' -%}false{%- else -%}true{%- endif -%}
           }
         dest: "/etc/docker/daemon.json"
         force: yes

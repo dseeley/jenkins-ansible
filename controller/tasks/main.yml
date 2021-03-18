@@ -1,7 +1,7 @@
 ---
 
-- name: "Assert that only 1 master node is being created"
-  assert: { that: "groups['master'] | length == 1", msg: "You may only create a single master node." }
+- name: "Assert that only 1 controller node is being created"
+  assert: { that: "groups['controller'] | length == 1", msg: "You may only create a single controller node." }
 
 - name: Forward 80 and 443 ports using iptables if host networking is being used (or if explicitly reqeusted using -e port_forward=true).
   block:
@@ -23,7 +23,7 @@
         - "firewall-cmd --zone=external --permanent --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080"
         - "firewall-cmd --zone=external --permanent --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443"
       when: ansible_os_family == 'RedHat'
-  when: "jenkins_master.docker_network.network_mode == 'host' or (port_forward is defined and port_forward|bool)"
+  when: "jenkins_controller.docker_network.network_mode == 'host' or (port_forward is defined and port_forward|bool)"
 
 - name: jenkins | install Jenkins in Docker
   include_tasks: jenkins_in_docker.yml

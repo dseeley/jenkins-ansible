@@ -15,7 +15,7 @@ jenkins_ui:
   skin_color: "grey"
   content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
 
-jenkins_slave:
+jenkins_agent:
   swarm_version: "3.25"
   numExecutorsMultiplier: 3     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   docker_network:
@@ -23,7 +23,7 @@ jenkins_slave:
     name: "jenkins"           # Optional and only used if 'bridge' is selected above (docker default network used if omitted)
 #    cidr: "10.50.0.0/24"      # Optional and only used if 'bridge' is selected above (docker default cidr used if omitted)
 
-jenkins_master:
+jenkins_controller:
   docker:
     repo: "https://github.com/jenkinsci/docker.git"
     repo_version: "HEAD"
@@ -38,6 +38,7 @@ jenkins_master:
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"
     - "configuration-as-code:latest"
+    - "docker-workflow:latest"
     - "extended-choice-parameter:latest"
     - "git-parameter:latest"
     - "login-theme:latest"
@@ -49,7 +50,7 @@ jenkins_master:
     - "swarm:latest"
     - "uno-choice:latest"
     - "workflow-aggregator:latest"
-  jcasc_numExecutorsMultiplier: 1     # Cannot set jenkins_master.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  jcasc_numExecutorsMultiplier: 1     # Cannot set jenkins_controller.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
     local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
