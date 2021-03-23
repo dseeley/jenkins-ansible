@@ -20,8 +20,8 @@ jenkins_agent:
   numExecutorsMultiplier: 3     # Cannot set to "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   docker_network:
     network_mode: bridge      # 'host' or 'bridge'
-    name: "jenkins"           # Optional and only used if 'bridge' is selected above (docker default network used if omitted)
-#    cidr: "10.50.0.0/24"      # Optional and only used if 'bridge' is selected above (docker default cidr used if omitted)
+    name: "jenkins"           # Optional, only valid if 'bridge' is selected above.  If omitted, docker creates the 'default0' bridge on 172.17.x.x).
+#    cidr: "10.50.0.0/24"      # Optional, only valid if 'bridge' is selected above.  If omitted, docker selects a cidr from 172.16.0.0/12).  If this is set, 'name' must also be set (this cidr cannot be applied to the default0 bridge).
 
 jenkins_controller:
   docker:
@@ -32,8 +32,8 @@ jenkins_controller:
   workspace_dir: "{{jenkins_home_dir}}/jobs"
   docker_network:
     network_mode: bridge      # 'host' or 'bridge'
-    name: "jenkins"           # Optional and only used if 'bridge' is selected above (docker default network used if omitted)
-#    cidr: "10.50.0.0/24"      # Optional and only used if 'bridge' is selected above (docker default cidr used if omitted)
+    name: "jenkins"           # Optional, only valid if 'bridge' is selected above.  If omitted, docker creates the 'default0' bridge on 172.17.x.x).
+#    cidr: "10.50.0.0/24"      # Optional, only valid if 'bridge' is selected above.  If omitted, docker selects a cidr from 172.16.0.0/12).  If this is set, 'name' must also be set (this cidr cannot be applied to the default0 bridge).
   plugins:
     - "basic-branch-build-strategies:latest"
     - "blueocean:latest"

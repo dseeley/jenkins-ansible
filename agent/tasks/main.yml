@@ -6,10 +6,14 @@
 #      become: yes
 #      shell: "docker image prune -f; docker volume prune -f"
 
+    - name: Assert that if jenkins_agent.docker_network.cidr is defined, jenkins_agent.docker_network.name is also defined (we cannot change the cidr of the default 'bridge' network)
+      assert: { that: "jenkins_agent.docker_network.name is defined", fail_msg: "If jenkins_agent.docker_network.cidr is defined, jenkins_agent.docker_network.name must also be defined" }
+      when: "jenkins_agent.docker_network.network_mode=='bridge' and jenkins_agent.docker_network.cidr is defined"
+
     - name: jenkins Docker | Create the Docker network
       become: yes
       docker_network:
-        name: jenkins
+        name: "{{ jenkins_agent.docker_network.name }}"
         ipam_config: "{%- if jenkins_agent.docker_network.cidr is defined -%}[{'subnet': '{{jenkins_agent.docker_network.cidr}}'}]{%- else-%}[]{%- endif -%}"
       when: "jenkins_agent.docker_network.network_mode=='bridge' and jenkins_agent.docker_network.name is defined"
 
@@ -74,7 +78,7 @@
         recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart_policy: "always"
-        network_mode: "{{ jenkins_controller.docker_network.network_mode | default('host') }}"
+        network_mode: "{{ jenkins_controller.docker_network.network_mode | default('bridge') }}"
         networks_cli_compatible: yes
         networks: "[{%- if jenkins_agent.docker_network.network_mode=='bridge' and jenkins_agent.docker_network.name is defined -%}{'name': '{{jenkins_agent.docker_network.name}}'}{%- endif -%}]"
         mounts:

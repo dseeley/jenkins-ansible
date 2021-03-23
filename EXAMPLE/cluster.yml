@@ -28,7 +28,7 @@
   hosts: all
   tasks:
     - { include_role: { name: "clusterverse/_dependencies", apply: {tags: ["always"]} }, tags: ["always"] }             #If we --skip-tags=clusterverse_config, this will ensure the variables from /cluster_defs are loaded.
-    - { include_role: { name: "jenkins/_common", tasks_from: "common", apply: {tags: ["jenkins_common"]} }, tags: ["jenkins_common"] }
+    - { include_role: { name: "jenkins/_common", apply: {tags: ["jenkins_common"]} }, tags: ["jenkins_common"] }
 
 - name: Jenkins controller tasks
   hosts: controller

@@ -11,16 +11,22 @@
         - "{{docker_data_root_dir}}"
         - "/etc/docker"
 
-    - name: jenkins/docker-ce | Add docker config to set data-root to mounted volume and disable iptables
+    - name: jenkins/docker-ce | Add docker config to set data-root to mounted volume, disable iptables (if host networking), and disable the default0 bridge interface (if another is configured)
       become: yes
       copy:
-        content: |
-          {
-            "data-root": "{{docker_data_root_dir}}",
-            "iptables": {%- if jenkins_controller.docker_network.network_mode == 'host' -%}false{%- else -%}true{%- endif -%}
-          }
+        content: "{{ daemon_json_content | from_yaml | to_nice_json(indent=2) }}"
         dest: "/etc/docker/daemon.json"
         force: yes
+      vars:
+        _jenkins_docker_network: "{{jenkins_agent.docker_network if 'agent' in group_names else jenkins_controller.docker_network}}"
+        daemon_json_content: |
+          data-root: {{docker_data_root_dir}}
+          {% if _jenkins_docker_network.network_mode == 'host' %}
+          iptables: false
+          bridge: none
+          {% elif _jenkins_docker_network.name is defined  %}
+          bridge: none
+          {% endif %}
 
     - name: jenkins/docker-ce | Add Docker GPG apt Key
       become: yes
@@ -39,4 +45,4 @@
       apt:
         update_cache: yes
         name: docker-ce
-        state: latest
+        state: present
