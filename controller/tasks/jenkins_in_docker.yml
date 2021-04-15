@@ -8,16 +8,16 @@
 #      become: yes
 #      shell: "docker image prune -f; docker volume prune -f"
 
-    - name: Assert that if jenkins_controller.docker_network.cidr is defined, jenkins_controller.docker_network.name is also defined (we cannot change the cidr of the default 'bridge' network)
-      assert: { that: "jenkins_controller.docker_network.name is defined", fail_msg: "If jenkins_controller.docker_network.cidr is defined, jenkins_controller.docker_network.name must also be defined" }
-      when: "jenkins_controller.docker_network.network_mode=='bridge' and jenkins_controller.docker_network.cidr is defined"
+    - name: Assert that if host_docker.network.container.cidr is defined, host_docker.network.container.name is also defined (we cannot change the cidr of the default 'bridge' network)
+      assert: { that: "host_docker.network.container.name is defined", fail_msg: "If host_docker.network.container.cidr is defined, host_docker.network.container.name must also be defined" }
+      when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.cidr is defined"
 
     - name: jenkins Docker | Create the Docker network
       become: yes
       docker_network:
-        name: "{{jenkins_controller.docker_network.name}}"
-        ipam_config: "{%- if jenkins_controller.docker_network.cidr is defined -%}[{'subnet': '{{jenkins_controller.docker_network.cidr}}'}]{%- else-%}[]{%- endif -%}"
-      when: "jenkins_controller.docker_network.network_mode=='bridge' and jenkins_controller.docker_network.name is defined"
+        name: "{{host_docker.network.container.name}}"
+        ipam_config: "{%- if host_docker.network.container.cidr is defined -%}[{'subnet': '{{host_docker.network.container.cidr}}'}]{%- else-%}[]{%- endif -%}"
+      when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined"
 
     - name: jenkins Docker | Create temporary build directory
       become: yes
@@ -34,8 +34,8 @@
     - name: jenkins Docker | git clone Jenkins docker build repo from github
       become: yes
       git:
-        repo: "{{jenkins_controller.docker.repo}}"
-        version: "{{jenkins_controller.docker.repo_version}}"
+        repo: "{{jenkins_controller.docker_image.repo}}"
+        version: "{{jenkins_controller.docker_image.repo_version}}"
         dest: "{{ tmp_build_dir.path }}"
 
     - name: jenkins Docker | create JCasC config file
@@ -57,7 +57,7 @@
     - name: jenkins Docker | augment the dockerfile
       become: yes
       blockinfile:
-        path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker.repo_dockerfile_path}}"
+        path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         block: |
           USER root
           ENV PIPENV_VENV_IN_PROJECT=true
@@ -86,7 +86,7 @@
     - name: jenkins Docker | remove the JENKINS_SHA check
       become: yes
       lineinfile:
-        path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker.repo_dockerfile_path}}"
+        path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         regexp: '.*?JENKINS_SHA.*sha256sum.*'
         line: "&& /bin/true"
 
@@ -107,7 +107,7 @@
       register: r__xml
 
     - set_fact:
-        jenkins_version: "{%-if jenkins_controller.docker.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker.war_version}}{%- endif -%}"
+        jenkins_version: "{%-if jenkins_controller.docker_image.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker_image.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker_image.war_version}}{%- endif -%}"
       vars:
         _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
         _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
@@ -117,7 +117,7 @@
       docker_image:
         source: build
         build:
-          dockerfile: "{{ tmp_build_dir.path }}{{jenkins_controller.docker.repo_dockerfile_path}}"
+          dockerfile: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
           args:
             uid: "{{ jenkins_uid }}"
             gid: "{{ jenkins_gid }}"
@@ -152,9 +152,9 @@
         state: started
         restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
         restart_policy: "always"
-        network_mode: "{{ jenkins_controller.docker_network.network_mode | default('host') }}"
+        network_mode: "{{ host_docker.network.container.mode | default('host') }}"
         networks_cli_compatible: yes
-        networks: "[{%- if jenkins_controller.docker_network.network_mode=='bridge' and jenkins_controller.docker_network.name is defined -%}{'name': '{{jenkins_controller.docker_network.name}}'}{%- endif -%}]"
+        networks: "[{%- if host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined -%}{'name': '{{host_docker.network.container.name}}'}{%- endif -%}]"
         ports: ["80:8080", "443:8443", "50000:50000"]
         env:
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)

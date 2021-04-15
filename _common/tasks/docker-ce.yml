@@ -8,24 +8,25 @@
         path: "{{ item }}"
         state: directory
       with_items:
-        - "{{docker_data_root_dir}}"
+        - "{{host_docker.data_root_dir}}"
         - "/etc/docker"
 
-    - name: jenkins/docker-ce | Add docker config to set data-root to mounted volume, disable iptables (if host networking), and disable the default0 bridge interface (if another is configured)
+    - name: jenkins/docker-ce | Add docker config to set data-root to mounted volume, disable iptables (if host networking), and disable the docker0 bridge interface (if another is configured)
       become: yes
       copy:
         content: "{{ daemon_json_content | from_yaml | to_nice_json(indent=2) }}"
         dest: "/etc/docker/daemon.json"
         force: yes
       vars:
-        _jenkins_docker_network: "{{jenkins_agent.docker_network if 'agent' in group_names else jenkins_controller.docker_network}}"
         daemon_json_content: |
-          data-root: {{docker_data_root_dir}}
-          {% if _jenkins_docker_network.network_mode == 'host' %}
+          data-root: {{host_docker.data_root_dir}}
+          {% if host_docker.network.container.mode == 'host' %}
           iptables: false
+          {% endif %}
+          {%- if host_docker.network.docker0_bridge_cidr is defined and host_docker.network.docker0_bridge_cidr == "none" -%}
           bridge: none
-          {% elif _jenkins_docker_network.name is defined  %}
-          bridge: none
+          {%- elif host_docker.network.docker0_bridge_cidr is defined and host_docker.network.docker0_bridge_cidr | ipaddr('network/prefix') | length > 0 -%}
+          "default-address-pools": [ {"base": "{{ host_docker.network.docker0_bridge_cidr | ipaddr('network') }}", "size": {{ host_docker.network.docker0_bridge_cidr | ipaddr('prefix') }} } ]
           {% endif %}
 
     - name: jenkins/docker-ce | Add Docker GPG apt Key
