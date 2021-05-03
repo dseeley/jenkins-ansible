@@ -23,10 +23,10 @@
           {% if host_docker.network.container.mode == 'host' %}
           iptables: false
           {% endif %}
-          {%- if host_docker.network.docker0_bridge_cidr is defined and host_docker.network.docker0_bridge_cidr == "none" -%}
+          {%- if host_docker.network.docker0_default_address_pools is defined and host_docker.network.docker0_default_address_pools | length == 0 -%}
           bridge: none
-          {%- elif host_docker.network.docker0_bridge_cidr is defined and host_docker.network.docker0_bridge_cidr | ipaddr('network/prefix') | length > 0 -%}
-          "default-address-pools": [ {"base": "{{ host_docker.network.docker0_bridge_cidr | ipaddr('network') }}", "size": {{ host_docker.network.docker0_bridge_cidr | ipaddr('prefix') }} } ]
+          {%- elif host_docker.network.docker0_default_address_pools is defined and host_docker.network.docker0_default_address_pools | length -%}
+          "default-address-pools": {{ host_docker.network.docker0_default_address_pools | to_json }}
           {% endif %}
 
     - name: jenkins/docker-ce | Add Docker GPG apt Key

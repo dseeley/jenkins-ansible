@@ -16,7 +16,7 @@
   with_items: "{{ build_dockerfiles | default([]) }}"
   register: r__copy_dockerfiles
 
-- name: jenkins/docker-build-images | Start building Docker build-images
+- name: jenkins/docker-build-images | Start building images in ./_build_dockerfiles
   become: yes
   docker_image:
     source: build

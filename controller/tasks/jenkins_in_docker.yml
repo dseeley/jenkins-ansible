@@ -8,8 +8,8 @@
 #      become: yes
 #      shell: "docker image prune -f; docker volume prune -f"
 
-    - name: Assert that if host_docker.network.container.cidr is defined, host_docker.network.container.name is also defined (we cannot change the cidr of the default 'bridge' network)
-      assert: { that: "host_docker.network.container.name is defined", fail_msg: "If host_docker.network.container.cidr is defined, host_docker.network.container.name must also be defined" }
+    - name: Assert that if host_docker.network.container.cidr is defined (and valid IP), host_docker.network.container.name is also defined (we cannot change the cidr of the default 'bridge' network)
+      assert: { that: "host_docker.network.container.name is defined and host_docker.network.container.cidr | ipaddr('network/prefix') | length", fail_msg: "If host_docker.network.container.cidr is defined, host_docker.network.container.name must also be defined" }
       when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.cidr is defined"
 
     - name: jenkins Docker | Create the Docker network
