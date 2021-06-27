@@ -30,7 +30,7 @@ jenkins_ui:
   content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
 
 jenkins_agent:
-  swarm_version: "3.25"
+  swarm_version: "3.27"
   numExecutorsMultiplier: 2               # Cannot set to "{{ansible_processor_vcpus * 2}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
 
 jenkins_controller:
@@ -39,6 +39,7 @@ jenkins_controller:
     repo_version: "HEAD"
     repo_dockerfile_path: "/11/debian/buster/hotspot/Dockerfile"    # From: https://github.com/jenkinsci/docker.git
     war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
+    plugin_cli_version: "latest"                                    # One of: 'latest', or 'tags/<tag>' (e.g. 'tags/2.9.3')
   workspace_dir: "{{jenkins_home_dir}}/jobs"
   plugins:
     - "basic-branch-build-strategies:latest"
@@ -71,6 +72,8 @@ jenkins_controller:
           users:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
+      remotingSecurity:
+        enabled: true
     unclassified:
       location:
         adminAddress: "{{ jenkins_ui.email | default(omit) }}"

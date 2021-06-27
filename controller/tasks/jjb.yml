@@ -42,44 +42,47 @@
     jjb_jobs: "{{ jjb_jobs | default([]) + [{(item|basename): ((lookup('template', item) | from_yaml) ) }] }}"
   with_fileglob: "{{ playbook_dir }}/cluster_defs/{{ cloud_type }}/{{ clusterid }}/_jjb_jobs/*"
 
-- name: JJB | Copy folder jobs to the JJB directory
-  become: yes
-  blockinfile:
-    content: |-
-      - job:
-          name: "{{item}}"
-          project-type: folder
-    path: "{{ tmp_build_dir.path }}/_folders-definition.yml"
-    create: yes
-    marker: "## {mark} ANSIBLE MANAGED BLOCK ({{item}})"
-    mode: 0440
-  with_items: "{{ _folder_names }}"
-  vars:
-    _job_names: "{{jjb_jobs | json_query(\"[].*.job.name[]\")}}"
-    _folder_names: "{{ _job_names | map ('regex_search', '^(.*?)\/.+$', '\\1') | list | json_query(\"[]\") }}"
+- name: JJB
+  block:
+    - name: JJB | Copy folder jobs to the JJB directory
+      become: yes
+      blockinfile:
+        content: |-
+          - job:
+              name: "{{item}}"
+              project-type: folder
+        path: "{{ tmp_build_dir.path }}/_folders-definition.yml"
+        create: yes
+        marker: "## {mark} ANSIBLE MANAGED BLOCK ({{item}})"
+        mode: 0440
+      with_items: "{{ _folder_names }}"
+      vars:
+        _job_names: "{{jjb_jobs | json_query(\"[].*.job.name[]\")}}"
+        _folder_names: "{{ _job_names | map ('regex_search', '^(.*?)\/.+$', '\\1') | list | json_query(\"[]\") }}"
 
-- name: JJB | Reload jenkins-jobs (create folders first)
-  become: yes
-  shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
+    - name: JJB | Reload jenkins-jobs (create folders first)
+      become: yes
+      shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
 
-- name: JJB | Copy jobs to the JJB directory
-  become: yes
-  copy:
-    content: |-
-      - job:
-          {{ item[_filename].job | to_nice_yaml(indent=2, width=10000) | indent(4, false) }}
-    dest: "{{ tmp_build_dir.path }}/{{ _filename }}"
-    mode: 0440
-  with_items: "{{ jjb_jobs }}"
-  vars:
-    _filename: "{{ item.keys() | list | first }}"
+    - name: JJB | Copy jobs to the JJB directory
+      become: yes
+      copy:
+        content: |-
+          - job:
+              {{ item[_filename].job | to_nice_yaml(indent=2, width=10000) | indent(4, false) }}
+        dest: "{{ tmp_build_dir.path }}/{{ _filename }}"
+        mode: 0440
+      with_items: "{{ jjb_jobs }}"
+      vars:
+        _filename: "{{ item.keys() | list | first }}"
 
-- name: JJB | Reload jenkins-jobs (add jobs)
-  become: yes
-  shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
+    - name: JJB | Reload jenkins-jobs (add jobs)
+      become: yes
+      shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
 
-- name: JJB | Remove temporary build directory
-  become: yes
-  file:
-    path: "{{ tmp_build_dir.path }}"
-    state: absent
+    - name: JJB | Remove temporary build directory
+      become: yes
+      file:
+        path: "{{ tmp_build_dir.path }}"
+        state: absent
+  when: jjb_jobs is defined

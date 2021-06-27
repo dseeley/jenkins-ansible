@@ -77,8 +77,9 @@
 
           USER ${user}
 
-          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems in GCP for some reason.  Old install-plugins.sh still works for now...
+          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems downloading plugins when built in GCP for some reason (gives "Unable to resolve plugin URL...").  Old install-plugins.sh still works for now...
           # RUN jenkins-plugin-cli --verbose --plugins {{ jenkins_controller.plugins | join(' ') }}
+          # This is the legacy plugin installer, in case the new one doesn't work.
           RUN /usr/local/bin/install-plugins.sh {{ jenkins_controller.plugins | join(' ') }}
       vars:
         host_docker_gid: "{{getent_group['docker'][1]}}"
@@ -106,12 +107,6 @@
       run_once: true
       register: r__xml
 
-    - set_fact:
-        jenkins_version: "{%-if jenkins_controller.docker_image.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker_image.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker_image.war_version}}{%- endif -%}"
-      vars:
-        _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
-        _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
-
     - name: jenkins Docker | Build the jenkins Docker image
       become: yes
       docker_image:
@@ -122,7 +117,7 @@
             uid: "{{ jenkins_uid }}"
             gid: "{{ jenkins_gid }}"
             JENKINS_VERSION: "{{ jenkins_version }}"
-#            PLUGIN_CLI_URL: "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.5.0/jenkins-plugin-manager-2.5.0.jar"
+            PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
           pull: yes
           nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
@@ -189,3 +184,7 @@
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent
+  vars:
+    _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
+    _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
+    jenkins_version: "{%-if jenkins_controller.docker_image.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker_image.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker_image.war_version}}{%- endif -%}"
