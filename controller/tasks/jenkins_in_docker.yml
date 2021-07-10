@@ -69,7 +69,7 @@
           && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
           && pip3 install pipenv \
           && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
-          && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+          && add-apt-repository "deb [arch={{'amd64' if ansible_architecture == 'x86_64' else ansible_architecture}}] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
           && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
 
           # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
@@ -93,7 +93,7 @@
 
     - name: jenkins Docker | Get the Jenkins release maven-metadata
       uri:
-        url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml"
+        url: "https://repo.jenkins-ci.org/public/org/jenkins-ci/main/jenkins-war/maven-metadata.xml"
         return_content: yes
         status_code: 200
       register: r__uri
@@ -107,6 +107,12 @@
       run_once: true
       register: r__xml
 
+    - set_fact:
+        jenkins_war_version: "{%-if jenkins_controller.docker_image.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker_image.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker_image.war_version}}{%- endif -%}"
+      vars:
+        _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
+        _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
+
     - name: jenkins Docker | Build the jenkins Docker image
       become: yes
       docker_image:
@@ -116,7 +122,8 @@
           args:
             uid: "{{ jenkins_uid }}"
             gid: "{{ jenkins_gid }}"
-            JENKINS_VERSION: "{{ jenkins_version }}"
+            TARGETARCH: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"
+            JENKINS_VERSION: "{{ jenkins_war_version }}"
             PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
           pull: yes
@@ -124,13 +131,13 @@
           rm: yes
           path: "{{ tmp_build_dir.path }}"
         force_source: true
-        name: "jenkins_controller:{{ jenkins_version }}"
+        name: "jenkins_controller:{{ jenkins_war_version }}"
       register: r__docker_image
 
     - name: jenkins Docker | Get the jenkins Docker image id
       become: yes
       docker_image_info:
-        name: "jenkins_controller:{{ jenkins_version }}"
+        name: "jenkins_controller:{{ jenkins_war_version }}"
       register: r__docker_image_info
 
     - name: jenkins Docker | Create and run the jenkins Docker container
@@ -184,7 +191,3 @@
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent
-  vars:
-    _latest_jenkins_version: "{{r__xml.matches | json_query(\"[].version\") | semver_sort | last }}"
-    _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
-    jenkins_version: "{%-if jenkins_controller.docker_image.war_version == 'latest-lts' -%}{{_latest_jenkins_version_lts}}{%- elif jenkins_controller.docker_image.war_version == 'latest' -%}{{_latest_jenkins_version}}{%- else -%}{{jenkins_controller.docker_image.war_version}}{%- endif -%}"

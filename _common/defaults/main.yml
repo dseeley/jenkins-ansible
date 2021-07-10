@@ -26,7 +26,7 @@ jenkins_gid: "{{jenkins_uid}}"
 
 jenkins_ui:
   email: "example@example.com"
-  skin_color: "grey"
+  skin_color: "linear-gradient(110deg, transparent 40%, #000 40%), linear-gradient(90deg, #0085ff 0%, #044689 40%)"
   content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
 
 jenkins_agent:
@@ -86,7 +86,7 @@ jenkins_controller:
         elements:
           - cssText:
               text: |
-                #header { background: linear-gradient(110deg, {{jenkins_ui.skin_color}} 40%, #000 40%);}
+                #header { background: {{jenkins_ui.skin_color}}; }
                 #jenkins-home-link:after {
                   content: '{{jenkins_ui.content}}';
                   vertical-align: middle;

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from distutils.version import LooseVersion
+from pkg_resources import parse_version
 
 def semver_sort(value):
-    return sorted(value, key=LooseVersion)
+    return sorted(value, key=parse_version)
 
 
 class FilterModule(object):
