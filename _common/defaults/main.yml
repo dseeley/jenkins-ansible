@@ -63,7 +63,7 @@ jenkins_controller:
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
   casc_config:
     jenkins:
-      systemMessage: "This is the {{jenkins_ui.content}} Jenkins"
+      systemMessage: "This is the <i>{{jenkins_ui.content}}</i> Jenkins"
       noUsageStatistics: true
       authorizationStrategy: "loggedInUsersCanDoAnything"
       securityRealm:
@@ -74,6 +74,9 @@ jenkins_controller:
               password: "{{jenkins_admin_password}}"
       remotingSecurity:
         enabled: true
+      markupFormatter:
+        rawHtml:
+          disableSyntaxHighlighting: false
     unclassified:
       location:
         adminAddress: "{{ jenkins_ui.email | default(omit) }}"
