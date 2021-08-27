@@ -12,6 +12,9 @@ skip_dynamic_inventory_sshwait: true
 app_name: "jenkins"                             # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
 app_class: "cicd"                               # The class of application (e.g. 'database', 'webserver'); becomes part of the fqdn
 
+pkgupdate: always
+reboot_on_package_upgrade: true
+
 cluster_name: "{{app_name}}-{{buildenv}}"       # Identifies the cluster within the cloud environment
 
 cluster_vars:
