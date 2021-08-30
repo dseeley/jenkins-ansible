@@ -69,7 +69,7 @@
           && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
           && pip3 install pipenv \
           && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
-          && add-apt-repository "deb [arch={{'amd64' if ansible_architecture == 'x86_64' else ansible_architecture}}] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+          && add-apt-repository "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
           && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
 
           # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
@@ -122,7 +122,7 @@
           args:
             uid: "{{ jenkins_uid }}"
             gid: "{{ jenkins_gid }}"
-            TARGETARCH: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"
+            TARGETARCH: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
             JENKINS_VERSION: "{{ jenkins_war_version }}"
             PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
