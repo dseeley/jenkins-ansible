@@ -1,0 +1,7 @@
+#!groovy
+
+node {
+    stage('Call jenkins/jenkins-release-tag') {
+        build job: 'jenkins/jenkins-release-tag', parameters: [string(name: 'NEW_VERSION', value: "next")]
+    }
+}
