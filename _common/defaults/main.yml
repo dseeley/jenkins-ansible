@@ -30,7 +30,7 @@ jenkins_ui:
   content: "{{clusterid}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
 
 jenkins_agent:
-  swarm_version: "3.28"
+  swarm_version: "3.29"
   numExecutorsMultiplier: 2               # Cannot set to "{{ansible_processor_vcpus * 2}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
 
 jenkins_controller:
