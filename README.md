@@ -15,5 +15,5 @@ Default configuration is stored in `roles/jenkins/_common/defaults/main.yml`.  O
 
 #### Invocation
 ```
-ansible-playbook  -e cloud_type=aws -e clusterid=jenkins -e region=eu-west-1 -e buildenv=sandbox cluster.yml
+ansible-playbook -e cloud_type=aws -e clusterid=jenkins -e region=eu-west-1 -e buildenv=sandbox cluster.yml
 ```

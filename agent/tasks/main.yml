@@ -29,6 +29,27 @@
         database: group
         key: docker
 
+    - block:
+        - name: jenkins Docker | Get the Jenkins swarm release
+          uri:
+            url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/maven-metadata.xml"
+            return_content: yes
+            status_code: 200
+          register: r__uri
+
+        - name: jenkins Docker | Extract the xml from the Jenkins swarm release metadata
+          xml:
+            xmlstring : "{{r__uri.content}}"
+            content: "text"
+            xpath: "/metadata/versioning/latest"
+          delegate_to: localhost
+          run_once: true
+          register: r__xml
+
+        - name: jenkins Docker | r__xml.matches[0].latest
+          debug: msg={{r__xml.matches[0].latest}}
+      when: jenkins_agent.swarm_version == 'latest'
+
     - name: jenkins Docker | copy jenkins swarm agent template
       become: yes
       template:
@@ -44,6 +65,8 @@
       docker_image:
         source: build
         build:
+          args:
+            SWARM_VERSION: "{{ r__xml.matches[0].latest | default(jenkins_agent.swarm_version) }}"
           network: host
           pull: yes
           nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.

@@ -1,9 +1,10 @@
 FROM openjdk:11-jre
 
-ENV SWARM_VERSION={{jenkins_agent.swarm_version}}
-ENV HOME {{jenkins_home_dir}}
-ENV JENKINS_HOME {{jenkins_home_dir}}
-ENV JENKINS_EXECUTORS {{ansible_processor_vcpus}}
+ARG SWARM_VERSION=3.29
+ARG JENKINS_HOME={{jenkins_home_dir}}
+
+ENV JENKINS_HOME=${JENKINS_HOME}
+ENV HOME={{jenkins_home_dir}}
 ENV PIPENV_VENV_IN_PROJECT=true
 
 # Create user & install swarm-client.jar
