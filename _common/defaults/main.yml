@@ -18,7 +18,7 @@ host_docker:
 jenkins_admin_username: admin
 jenkins_admin_password: password
 
-jenkins_home_dir: "/var/jenkins_home"
+jenkins_home_dir: "/home/jenkins"
 
 jenkins_username: jenkins
 jenkins_uid: 386

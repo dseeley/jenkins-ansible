@@ -23,6 +23,7 @@
   user:
     name: "{{ jenkins_username }}"
     group: "{{ jenkins_username }}"
+    home: "{{ jenkins_home_dir }}"
     uid: "{{ jenkins_uid }}"
     shell: "/usr/sbin/nologin"
     groups: ["docker"]
