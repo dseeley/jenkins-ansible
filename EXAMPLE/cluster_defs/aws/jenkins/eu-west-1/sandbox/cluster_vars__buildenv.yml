@@ -30,7 +30,7 @@ cluster_vars:
         auto_volumes:
           - { device_name: "/dev/sdf", mountpoint: "{{host_docker.data_root_dir}}", fstype: "ext4", volume_type: "gp2", volume_size: 32, encrypted: True, delete_on_termination: true }
         flavor: t3a.medium
-#        flavor: t4g.small    #ARM64
+#        flavor: t4g.medium    #ARM64
         version: "{{jenkins_controller.docker_image.war_version | regex_replace('[\\.-]', '_') | default('')}}"
         vms_by_az: { a: 1, b: 1, c: 0 }
 

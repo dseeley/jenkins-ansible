@@ -1,18 +1,20 @@
 ---
 
-redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback', '_scheme_rmvm_rmdisk_only', '_scheme_rmvm_keepdisk_rollback']
+redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback', '_scheme_rmvm_rmdisk_only', '_scheme_rmvm_keepdisk_rollback', '_noredeploy_scale_in_only']
 
 #redeploy_scheme: _scheme_addallnew_rmdisk_rollback
 #redeploy_scheme: _scheme_addnewvm_rmdisk_rollback
 #redeploy_scheme: _scheme_rmvm_rmdisk_only
 #redeploy_scheme: _scheme_rmvm_keepdisk_rollback
+#redeploy_scheme: _noredeploy_scale_in_only
 
 skip_dynamic_inventory_sshwait: true
+debug_nested_log_output: true
 
 app_name: "jenkins"                             # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
 app_class: "cicd"                               # The class of application (e.g. 'database', 'webserver'); becomes part of the fqdn
 
-pkgupdate: always
+pkgupdate: onCreate
 reboot_on_package_upgrade: true
 
 cluster_name: "{{app_name}}-{{buildenv}}"       # Identifies the cluster within the cloud environment

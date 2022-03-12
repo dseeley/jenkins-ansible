@@ -28,6 +28,38 @@
     shell: "/usr/sbin/nologin"
     groups: ["docker"]
 
+- name: jenkins/common | set unlimited core files (ulimit -c)
+  become: yes
+  pam_limits:
+    domain: "{{jenkins_username}}"
+    limit_type: "-"
+    limit_item: core
+    value: unlimited
+
+- name: jenkins/common | set unlimited fsize (ulimit -f)
+  become: yes
+  pam_limits:
+    domain: "{{jenkins_username}}"
+    limit_type: "-"
+    limit_item: fsize
+    value: unlimited
+
+- name: jenkins/common | set 4096/8192 nofile (ulimit -n)
+  become: yes
+  pam_limits:
+    domain: "{{jenkins_username}}"
+    limit_type: "{{ item.key }}"
+    limit_item: nofile
+    value: "{{ item.value }}"
+  with_dict: {'soft': 4096, 'hard': 8192}
+
+- name: jenkins/common | set 30654 nproc (ulimit -u)
+  become: yes
+  pam_limits:
+    domain: "{{jenkins_username}}"
+    limit_type: "-"
+    limit_item: nproc
+    value: 30654
 
 - name: jenkins/common | install Docker build images
   include_tasks: docker-build-images.yml
