@@ -37,7 +37,7 @@ jenkins_controller:
   docker_image:
     repo: "https://github.com/jenkinsci/docker.git"
     repo_version: "HEAD"
-    repo_dockerfile_path: "/11/debian/bullseye/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
+    repo_dockerfile_path: "/17/debian/bullseye/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
     war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
     plugin_cli_version: "latest"                                    # One of: 'latest', or 'tags/<tag>' (e.g. 'tags/2.9.3')
   workspace_dir: "{{jenkins_home_dir}}/jobs"
@@ -51,6 +51,7 @@ jenkins_controller:
     - "login-theme:latest"
     - "parameterized-scheduler:latest"
     - "permissive-script-security:latest"
+    - "pipeline-stage-view:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "simple-theme:latest"
