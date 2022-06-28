@@ -69,7 +69,7 @@
             SWARM_VERSION: "{{ r__xml.matches[0].latest | default(jenkins_agent.swarm_version) }}"
           network: host
           pull: yes
-          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+          nocache: "{{ 'yes' if rebuild_docker_image is defined and rebuild_docker_image|bool else 'no' }}"       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
           rm: yes
           path: "{{ tmp_build_dir.path }}"
         force_source: true
@@ -91,7 +91,7 @@
           JENKINS_NAME: "{{inventory_hostname}}"
           JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['controller'][0] }}.{{ cluster_vars.dns_user_domain | regex_replace('\\.*$') }}{% else %}{{ hostvars[groups['controller'][0]]['ansible_host'] }}{% endif %}:80"
           JENKINS_EXECUTORS: "{{ (((ansible_memtotal_mb|int / 1024) + (ansible_processor_vcpus * 2)) * jenkins_agent.numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator == ((2*Number of vCPUs) + (GB Ram)) * scaling factor
-          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent"
+          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
         cleanup: no
         detach: yes
         name: "jenkins_swarm_agent"

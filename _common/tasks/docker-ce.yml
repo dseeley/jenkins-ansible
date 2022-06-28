@@ -20,6 +20,7 @@
       vars:
         daemon_json_content: |
           data-root: {{host_docker.data_root_dir}}
+          default-cgroupns-mode: "host"
           {% if host_docker.network.container.mode == 'host' %}
           iptables: false
           {% endif %}

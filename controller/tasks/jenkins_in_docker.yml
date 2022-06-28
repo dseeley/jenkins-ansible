@@ -77,19 +77,25 @@
 
           USER ${user}
 
-          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems downloading plugins when built in GCP for some reason (gives "Unable to resolve plugin URL...").  Old install-plugins.sh still works for now...
-          # RUN jenkins-plugin-cli --verbose --plugins {{ jenkins_controller.plugins | join(' ') }}
-          # This is the legacy plugin installer, in case the new one doesn't work.
-          RUN /usr/local/bin/install-plugins.sh {{ jenkins_controller.plugins | join(' ') }}
+          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems downloading plugins when built in GCP for some reason (gives "Unable to resolve plugin URL...").
+          RUN /bin/jenkins-plugin-cli --verbose --plugins {{ jenkins_controller.plugins | join(' ') }}
+          ## This is the legacy plugin installer. This was removed in 9b54caaf578b872fe3a89c3d83a69e2b7893ca5a - 26/06/2022
+          ## RUN /usr/local/bin/install-plugins.sh {{ jenkins_controller.plugins | join(' ') }}
       vars:
         host_docker_gid: "{{getent_group['docker'][1]}}"
 
-    - name: jenkins Docker | remove the JENKINS_SHA check
+    - name: jenkins Docker | remove the validation of the SHA of the war file in the Dockerfile with the calculated SHA of the war file (because we're specifying the war file ourselves)
       become: yes
       lineinfile:
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
-        regexp: '.*?JENKINS_SHA.*sha256sum.*'
-        line: "&& /bin/true"
+        regexp: '(^\s*)&&.*?sha256sum.*?(\s*\\)?$'
+        backrefs: yes
+        line: '\1&& /bin/true\2'
+      register: r__lineinfile
+      failed_when: not r__lineinfile.changed
+
+    - name: jenkins Docker | debug r__lineinfile
+      debug: msg={{r__lineinfile}}
 
     - name: jenkins Docker | Get the Jenkins release maven-metadata
       uri:
@@ -128,7 +134,7 @@
             PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
           pull: yes
-          nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+          nocache: "{{ 'yes' if rebuild_docker_image is defined and rebuild_docker_image|bool else 'no' }}"       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
           rm: yes
           path: "{{ tmp_build_dir.path }}"
         force_source: true
@@ -162,7 +168,7 @@
         env:
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           # NOTE: -Dpermissive-script-security.enabled=true is there to allow scripts to work without having to manually approve them all.  Also need the permissive-script-security plugin.  There is also a 'no_security' option that turns off all logging.
-          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security"
+          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
           JENKINS_HOME: "{{jenkins_home_dir}}"
         mounts:
           - target: "{{jenkins_home_dir}}"

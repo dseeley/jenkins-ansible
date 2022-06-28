@@ -7,5 +7,6 @@ venv
 *.pyc
 Pipfile.lock
 roles/clusterverse
+collections/
 /gcp__*.json
 id_rsa*

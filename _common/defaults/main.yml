@@ -1,5 +1,8 @@
 ---
 
+## always rebuild docker images
+rebuild_docker_image: no
+
 host_docker:
   data_root_dir: "/var/lib/docker"
   network:
@@ -36,7 +39,7 @@ jenkins_agent:
 jenkins_controller:
   docker_image:
     repo: "https://github.com/jenkinsci/docker.git"
-    repo_version: "HEAD"
+    repo_version: "HEAD"                                            # Or a git hash, e.g. "8a9f09e5f5ccfe2f2c2b13a9f0fe602f9500fa7c"
     repo_dockerfile_path: "/17/debian/bullseye/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
     war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
     plugin_cli_version: "latest"                                    # One of: 'latest', or 'tags/<tag>' (e.g. 'tags/2.9.3')
@@ -55,7 +58,7 @@ jenkins_controller:
     - "pipeline-stage-view:latest"
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
-    - "simple-theme:latest"
+    - "simple-theme-plugin:latest"
     - "swarm:latest"
     - "uno-choice:latest"
     - "workflow-aggregator:latest"
@@ -89,9 +92,10 @@ jenkins_controller:
         useDefaultTheme: true
       simple-theme-plugin:
         elements:
-          - cssText:
+          - cssText:              # NOTE: #header is used before version 2.346 ;  #page-header is used after version 2.346
               text: |
                 #header { background: {{jenkins_ui.skin_color}}; }
+                #page-header { background: {{jenkins_ui.skin_color}}; }
                 #jenkins-home-link:after {
                   content: '{{jenkins_ui.content}}';
                   vertical-align: middle;
