@@ -141,12 +141,6 @@
         name: "jenkins_controller:{{ jenkins_war_version }}"
       register: r__docker_image
 
-    - name: jenkins Docker | Get the jenkins Docker image id
-      become: yes
-      docker_image_info:
-        name: "jenkins_controller:{{ jenkins_war_version }}"
-      register: r__docker_image_info
-
     - name: jenkins Docker | Create and run the jenkins Docker container
       become: yes
       docker_container:
@@ -156,7 +150,7 @@
         user: "{{jenkins_uid}}:{{jenkins_gid}}"
         groups: ["docker"]
         hostname: "docker--{{inventory_hostname}}"
-        image: "{{r__docker_image_info.images[0].Id}}"
+        image: "{{r__docker_image.image.Id}}"
         recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
