@@ -52,21 +52,49 @@
 
     - name: jenkins Docker | copy jenkins swarm agent template
       become: yes
-      template:
-        src: "{{item}}"
-        dest: "{{ tmp_build_dir.path }}/{{item | basename | regex_replace('^(.*?)\\.j2', '\\1')}}"
-      with_items:
-        - "Dockerfile.j2"
-      vars:
-        host_docker_gid: "{{getent_group['docker'][1]}}"
+      copy:
+        dest: "{{ tmp_build_dir.path }}/Dockerfile"
+        content: |-
+          FROM eclipse-temurin:17-jre-jammy
+
+          ARG SWARM_VERSION={{ r__xml.matches[0].latest | default(jenkins_agent.swarm_version) }}
+          ARG JENKINS_HOME={{jenkins_home_dir}}
+
+          ENV JENKINS_HOME=${JENKINS_HOME}
+          ENV HOME={{jenkins_home_dir}}
+          ENV PIPENV_VENV_IN_PROJECT=true
+
+          # Create user & install swarm-client.jar
+          RUN mkdir -p ${JENKINS_HOME} \
+            && chown {{jenkins_uid}}:{{jenkins_gid}} ${JENKINS_HOME} \
+            && groupadd -g {{jenkins_gid}} {{jenkins_username}} \
+            && useradd -d ${JENKINS_HOME} -u {{jenkins_uid}} -g {{jenkins_gid}} -m -s /bin/bash {{jenkins_username}} \
+            && curl -o /bin/swarm-client.jar -SL https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/$SWARM_VERSION/swarm-client-$SWARM_VERSION.jar
+
+          ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
+          RUN apt-get update \
+            && apt-get install -y git vim sudo procps python3-pip \
+            && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
+            && pip3 install pipenv \
+            && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
+            && add-apt-repository "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+            && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
+
+          # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
+          RUN ((getent group docker && groupmod -g {{getent_group['docker'][1]}} docker) || addgroup docker --gid {{getent_group['docker'][1]}})
+
+          USER {{jenkins_username}}
+
+          VOLUME ${JENKINS_HOME}
+          WORKDIR ${JENKINS_HOME}
+
+          CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME} -executors ${JENKINS_EXECUTORS}"]
 
     - name: jenkins Docker | Build the jenkins Docker image
       become: yes
       docker_image:
         source: build
         build:
-          args:
-            SWARM_VERSION: "{{ r__xml.matches[0].latest | default(jenkins_agent.swarm_version) }}"
           network: host
           pull: yes
           nocache: "{{ 'yes' if rebuild_docker_image is defined and rebuild_docker_image|bool else 'no' }}"       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.

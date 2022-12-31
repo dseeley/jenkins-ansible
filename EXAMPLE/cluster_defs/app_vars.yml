@@ -56,7 +56,7 @@ jenkins_controller:
     - "swarm:latest"
     - "uno-choice:latest"
     - "workflow-aggregator:latest"
-  jcasc_numExecutorsMultiplier: 1     # Cannot set jenkins_controller.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  jcasc_numExecutorsMultiplier: 0.5     # Cannot set jenkins_controller.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
   casc_file:
     local: "/home/{{jenkins_username}}/jenkins_casc.yml"
     remote: "{{jenkins_home_dir}}/casc_configs/jenkins.yml"
@@ -71,8 +71,6 @@ jenkins_controller:
           users:
             - id: "{{jenkins_admin_username}}"
               password: "{{jenkins_admin_password}}"
-      remotingSecurity:
-        enabled: true
       markupFormatter:
         rawHtml:
           disableSyntaxHighlighting: false
