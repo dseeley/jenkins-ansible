@@ -131,6 +131,7 @@
             TARGETARCH: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
             JENKINS_VERSION: "{{ jenkins_war_version }}"
             JENKINS_HOME: "{{jenkins_home_dir}}"
+            RELEASE_LINE: "{{ 'war-stable' if jenkins_controller.docker_image.war_version == 'latest-lts' else 'war' }}"
             PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
           pull: yes
@@ -163,6 +164,7 @@
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           # NOTE: -Dpermissive-script-security.enabled=true is there to allow scripts to work without having to manually approve them all.  Also need the permissive-script-security plugin.  There is also a 'no_security' option that turns off all logging.
           JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
+#          JENKINS_OPTS: "--httpsPort=8443" --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword
           JENKINS_HOME: "{{jenkins_home_dir}}"
         mounts:
           - target: "{{jenkins_home_dir}}"
