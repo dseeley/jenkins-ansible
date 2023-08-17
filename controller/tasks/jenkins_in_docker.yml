@@ -60,14 +60,11 @@
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         block: |
           USER root
-          ENV PIPENV_VENV_IN_PROJECT=true
           ENV CASC_JENKINS_CONFIG "{{ jenkins_controller.casc_file.remote | dirname }}"
 
-          ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
           RUN apt-get update \
           && apt-get install -y git vim sudo procps python3-pip \
           && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
-          && pip3 install pipenv \
           && curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - \
           && add-apt-repository "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
           && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
@@ -77,7 +74,7 @@
 
           USER ${user}
 
-          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool. ##NOTE##: It has problems downloading plugins when built in GCP for some reason (gives "Unable to resolve plugin URL...").
+          # Options for jenkins-plugin-cli: https://github.com/jenkinsci/plugin-installation-manager-tool.    # NOTE: This used to have problems (not tested recently) downloading plugins when built in GCP for some reason (gives "Unable to resolve plugin URL...").
           RUN /bin/jenkins-plugin-cli --verbose --plugins {{ jenkins_controller.plugins | join(' ') }}
           ## This is the legacy plugin installer. This was removed in 9b54caaf578b872fe3a89c3d83a69e2b7893ca5a - 26/06/2022
           ## RUN /usr/local/bin/install-plugins.sh {{ jenkins_controller.plugins | join(' ') }}

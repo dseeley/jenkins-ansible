@@ -62,7 +62,6 @@
 
           ENV JENKINS_HOME=${JENKINS_HOME}
           ENV HOME={{jenkins_home_dir}}
-          ENV PIPENV_VENV_IN_PROJECT=true
 
           # Create user & install swarm-client.jar
           RUN mkdir -p ${JENKINS_HOME} \
@@ -71,11 +70,9 @@
             && useradd -d ${JENKINS_HOME} -u {{jenkins_uid}} -g {{jenkins_gid}} -m -s /bin/bash {{jenkins_username}} \
             && curl -o /bin/swarm-client.jar -SL https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/$SWARM_VERSION/swarm-client-$SWARM_VERSION.jar
 
-          ### Note: use pip to install pipenv (not apt) to avoid pypa/pipenv#2196 (when using PIPENV_VENV_IN_PROJECT)
           RUN apt-get update \
             && apt-get install -y git vim sudo procps python3-pip \
             && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
-            && pip3 install pipenv \
             && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
             && add-apt-repository "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
             && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli

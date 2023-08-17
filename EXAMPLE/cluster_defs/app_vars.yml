@@ -4,6 +4,8 @@
 rebuild_docker_image: no
 
 host_docker:
+  user: &hostdockeruser { name: 'docker', id: 973 }   #Need to set the gid explicitly, so that it doesn't clash with other gids. (In the parent OS, Ubuntu2204, 999 is available and selected by default, but then in bookworm (which is used for the jenkins controller image), 999 is used by systemd-journal.
+  group: *hostdockeruser
   data_root_dir: "/var/lib/docker"
   network:
 #    docker0_default_address_pools: []     # Optional.  If commented-out, the default local pools are used ([{"base":"172.17.0.0/12","size":16},{"base":"192.168.0.0/16","size":20}]}).  If set to a valid list<dict> (e.g. in case of clash with host network), that is used instead.  If set to an empty list, the the docker0 bridge is disabled, which means --network must be passed when creating containers.  (This is a hassle, but preferred, as default bridge is considered legacy: https://docs.docker.com/network/bridge/#use-the-default-bridge-network)
@@ -34,7 +36,7 @@ jenkins_controller:
   docker_image:
     repo: "https://github.com/jenkinsci/docker.git"
     repo_version: "HEAD"                                            # Or a git hash, e.g. "8a9f09e5f5ccfe2f2c2b13a9f0fe602f9500fa7c"
-    repo_dockerfile_path: "/17/debian/bullseye/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
+    repo_dockerfile_path: "/17/debian/bookworm/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
     war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
     plugin_cli_version: "latest"                                    # One of: 'latest', or 'tags/<tag>' (e.g. 'tags/2.9.3')
   workspace_dir: "{{jenkins_home_dir}}/jobs"
