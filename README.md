@@ -1,6 +1,6 @@
 # jenkins-ansible
 
-This Ansible role is used to provision Jenkins controller & agent, each in docker and able to provision docker containers.  Also configures Jenkins Job builder for complete IaC deployment. 
+This Ansible role is used to provision Jenkins controller & agent(s), and able to provision docker containers.  Also configures Jenkins Job builder for complete IaC deployment. 
 
 This project is designed to operate using [clusterverse](https://github.com/dseeley/clusterverse) to manage the base infrastructure.  Please see the [README.md](https://github.com/dseeley/clusterverse/blob/master/README.md) there for instructions on deployment.  There is an EXAMPLE folder that can be copied as a new project root.
 

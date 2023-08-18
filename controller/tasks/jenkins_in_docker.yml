@@ -38,20 +38,30 @@
         version: "{{jenkins_controller.docker_image.repo_version}}"
         dest: "{{ tmp_build_dir.path }}"
 
+    - name: jenkins Docker | Get agent facts to get memory CPU for executors calculation
+      ansible.builtin.setup:
+      delegate_to: "{{ groups['agent'][0] }}"
+      delegate_facts: yes
+      run_once: yes
+
     - name: jenkins Docker | create JCasC config file
       become: yes
       copy:
-        content: "{{ _casc_config_plus_numExecutors_plus_resourceRoot_url | to_nice_json }}"       # Note: we cannot use {{ jenkins_controller.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
+        content: "{{ _casc_config_plus_numExecutors_plus_resourceRoot_url_plus_agentnodes | to_nice_json }}"       # Note: we cannot use {{ jenkins_controller.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
         dest: "{{jenkins_controller.casc_file.local}}"
+        force: yes    # remote file will be replaced when contents are different to the existing
         decrypt: yes
         owner: "{{ jenkins_uid }}"
         group: "{{ jenkins_gid }}"
       vars:
         _base_casc_config: "{{jenkins_controller.casc_config}}"     # Note: We need to pre-template {{jenkins_controller.casc_config}} so that the vault credentials are templated-out correctly before filtering as json/yaml.
-        __num_executors: "{{ (((ansible_memtotal_mb|int / 1024) + (ansible_processor_vcpus * 2)) * jenkins_controller.jcasc_numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == ((2*Number of vCPUs) + (GB Ram)) * scaling factor
-        _casc_config_plus_numExecutors: "{{_base_casc_config | combine({'jenkins': {'numExecutors': __num_executors }}, recursive=true)}}"
+        __num_executors_controller: "{{ (ansible_processor_vcpus * jenkins_controller.jcasc_numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == (Number of vCPUs) * scaling factor
+        _casc_config_plus_numExecutors: "{{_base_casc_config | combine({'jenkins': {'numExecutors': __num_executors_controller }}, recursive=true)}}"
         __location_url: "http://{%- if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' -%} {{ansible_hostname | regex_replace('-(?!.*-).*')}}.{{cluster_vars.dns_user_domain | regex_replace('^(.*?)\\.?$','\\1')}} {%- else -%} {{ansible_default_ipv4.address}} {%- endif -%}"
         _casc_config_plus_numExecutors_plus_resourceRoot_url: "{{_casc_config_plus_numExecutors | combine({'unclassified': {'location': {'url': __location_url}}}, recursive=true)}}"
+        __num_executors_agent: "{{ (hostvars[groups['agent'][0]]['ansible_processor_vcpus'] * jenkins_agent.numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == (Number of vCPUs) * scaling factor
+        __agentnodes: "{{groups['agent'] | json_query(\"[].{permanent: {labelString: `agent`, name: @, numExecutors: `\" + __num_executors_agent + \"`, remoteFS: `/home/jenkins`, launcher: {inbound: {workDirSettings: {disabled: `false`, failIfWorkDirIsMissing: `true`, internalDir: `remoting`}}}}}\") }}"
+        _casc_config_plus_numExecutors_plus_resourceRoot_url_plus_agentnodes: "{{_casc_config_plus_numExecutors_plus_resourceRoot_url | combine({'jenkins': {'nodes': __agentnodes}}, recursive=true)}}"
       register: r__copy_jcasc
 
     - name: jenkins Docker | augment the dockerfile
@@ -160,7 +170,7 @@
         env:
           # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
           # NOTE: -Dpermissive-script-security.enabled=true is there to allow scripts to work without having to manually approve them all.  Also need the permissive-script-security plugin.  There is also a 'no_security' option that turns off all logging.
-          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
+          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true -Dhudson.model.ParametersAction.keepUndefinedParameters=false"
 #          JENKINS_OPTS: "--httpsPort=8443" --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword
           JENKINS_HOME: "{{jenkins_home_dir}}"
         mounts:

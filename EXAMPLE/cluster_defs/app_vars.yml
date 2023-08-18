@@ -29,8 +29,8 @@ jenkins_ui:
   content: "{{clusterid | default('jenkins')}} | {{cloud_type | default()}} | {{region | default()}} | {{buildenv | default()}}"
 
 jenkins_agent:
-  swarm_version: "latest"                 # One of: 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/maven-metadata.xml)
-  numExecutorsMultiplier: 1               # Cannot set to "{{ansible_processor_vcpus * 2}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
+  bindir: "/opt/jenkins"
+  numExecutorsMultiplier: 0.75            # Cannot set to "{{ansible_processor_vcpus * 2}}" because ansible_processor_vcpus is a hostvar, only determined when being built.
 
 jenkins_controller:
   docker_image:
@@ -55,7 +55,6 @@ jenkins_controller:
     - "pipeline-utility-steps:latest"
     - "rebuild:latest"
     - "simple-theme-plugin:latest"
-    - "swarm:latest"
     - "uno-choice:latest"
     - "workflow-aggregator:latest"
   jcasc_numExecutorsMultiplier: 0.5     # Cannot set jenkins_controller.casc_config.jenkins.jcasc_numExecutorsMultiplier = "{{ansible_processor_vcpus * 3}}" because ansible_processor_vcpus is a hostvar, only determined when being built.

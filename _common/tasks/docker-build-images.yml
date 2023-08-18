@@ -13,6 +13,7 @@
     content: "{{ build_dockerfiles[item] }}"
     dest: "{{ tmp_build_dir.path }}/{{ item }}"
     mode: 0440
+    force: yes    # remote file will be replaced when contents are different to the existing
   with_items: "{{ build_dockerfiles | default([]) }}"
   register: r__copy_dockerfiles
 

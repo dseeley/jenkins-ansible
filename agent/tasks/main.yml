@@ -1,139 +1,80 @@
 ---
 
-- name: jenkins Docker build
-  block:
-#    - name: jenkins Docker | prune old docker images & volumes
-#      become: yes
-#      shell: "docker image prune -f; docker volume prune -f"
-
-    - name: Assert that if host_docker.network.container.cidr is defined (and valid IP), host_docker.network.container.name is also defined (we cannot change the cidr of the default 'bridge' network)
-      assert: { that: "host_docker.network.container.name is defined and host_docker.network.container.cidr | ipaddr('network/prefix') | length", fail_msg: "If host_docker.network.container.cidr is defined, host_docker.network.container.name must also be defined" }
-      when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.cidr is defined"
-
-    - name: jenkins Docker | Create the Docker network
+- block:
+    - name: jenkins/agent | Install required packages
       become: yes
-      docker_network:
-        name: "{{ host_docker.network.container.name }}"
-        ipam_config: "{%- if host_docker.network.container.cidr is defined -%}[{'subnet': '{{host_docker.network.container.cidr}}'}]{%- else-%}[]{%- endif -%}"
-      when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined"
+      apt:
+        name: ['openjdk-17-jre-headless']
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+      notify: restart agent service
 
-    - name: jenkins Docker | Create temporary build directory
-      become: yes
-      tempfile:
-        state: directory
-        suffix: DockerBuildTEMP
-      register: tmp_build_dir
-
-    - name: jenkins Docker | get host docker group (stored as getent_group['docker'][1])
-      getent:
-        database: group
-        key: docker
-
-    - block:
-        - name: jenkins Docker | Get the Jenkins swarm release
-          uri:
-            url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/maven-metadata.xml"
-            return_content: yes
-            status_code: 200
-          register: r__uri
-
-        - name: jenkins Docker | Extract the xml from the Jenkins swarm release metadata
-          xml:
-            xmlstring : "{{r__uri.content}}"
-            content: "text"
-            xpath: "/metadata/versioning/latest"
-          delegate_to: localhost
-          run_once: true
-          register: r__xml
-
-        - name: jenkins Docker | r__xml.matches[0].latest
-          debug: msg={{r__xml.matches[0].latest}}
-      when: jenkins_agent.swarm_version == 'latest'
-
-    - name: jenkins Docker | copy jenkins swarm agent template
-      become: yes
-      copy:
-        dest: "{{ tmp_build_dir.path }}/Dockerfile"
-        content: |-
-          FROM eclipse-temurin:17-jre-jammy
-
-          ARG SWARM_VERSION={{ r__xml.matches[0].latest | default(jenkins_agent.swarm_version) }}
-          ARG JENKINS_HOME={{jenkins_home_dir}}
-
-          ENV JENKINS_HOME=${JENKINS_HOME}
-          ENV HOME={{jenkins_home_dir}}
-
-          # Create user & install swarm-client.jar
-          RUN mkdir -p ${JENKINS_HOME} \
-            && chown {{jenkins_uid}}:{{jenkins_gid}} ${JENKINS_HOME} \
-            && groupadd -g {{jenkins_gid}} {{jenkins_username}} \
-            && useradd -d ${JENKINS_HOME} -u {{jenkins_uid}} -g {{jenkins_gid}} -m -s /bin/bash {{jenkins_username}} \
-            && curl -o /bin/swarm-client.jar -SL https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/$SWARM_VERSION/swarm-client-$SWARM_VERSION.jar
-
-          RUN apt-get update \
-            && apt-get install -y git vim sudo procps python3-pip \
-            && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
-            && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
-            && add-apt-repository "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-            && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli
-
-          # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
-          RUN ((getent group docker && groupmod -g {{getent_group['docker'][1]}} docker) || addgroup docker --gid {{getent_group['docker'][1]}})
-
-          USER {{jenkins_username}}
-
-          VOLUME ${JENKINS_HOME}
-          WORKDIR ${JENKINS_HOME}
-
-          CMD ["sh", "-c", "java -jar /bin/swarm-client.jar -master ${JENKINS_MASTER} -username ${JENKINS_USER} -password ${JENKINS_PASS} -name ${JENKINS_NAME} -executors ${JENKINS_EXECUTORS}"]
-
-    - name: jenkins Docker | Build the jenkins Docker image
-      become: yes
-      docker_image:
-        source: build
-        build:
-          network: host
-          pull: yes
-          nocache: "{{ 'yes' if rebuild_docker_image is defined and rebuild_docker_image|bool else 'no' }}"       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
-          rm: yes
-          path: "{{ tmp_build_dir.path }}"
-        force_source: true
-        name: "jenkins_swarm_agent:latest"
-      register: r__docker_image
-
-    - name: jenkins Docker | Create and run the jenkins Docker container
-      become: yes
-      docker_container:
-        env:
-          JENKINS_USER: "{{jenkins_admin_username}}"
-          JENKINS_PASS: "{{jenkins_admin_password}}"
-          JENKINS_NAME: "{{inventory_hostname}}"
-          JENKINS_MASTER: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['controller'][0] }}.{{ cluster_vars.dns_user_domain | regex_replace('\\.*$') }}{% else %}{{ hostvars[groups['controller'][0]]['ansible_host'] }}{% endif %}:80"
-          JENKINS_EXECUTORS: "{{ (((ansible_memtotal_mb|int / 1024) + (ansible_processor_vcpus * 2)) * jenkins_agent.numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator == ((2*Number of vCPUs) + (GB Ram)) * scaling factor
-          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
-        cleanup: no
-        detach: yes
-        name: "jenkins_swarm_agent"
-        user: "{{jenkins_uid}}:{{jenkins_gid}}"
-        groups: ["docker"]
-        hostname: "docker--{{inventory_hostname}}"
-        image: "{{r__docker_image.image.Id}}"
-        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
-        state: started
-        restart_policy: "always"
-        network_mode: "{{ host_docker.network.container.mode | default('bridge') }}"
-        networks_cli_compatible: yes
-        networks: "[{%- if host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined -%}{'name': '{{host_docker.network.container.name}}'}{%- endif -%}]"
-        mounts:
-          - target: "{{jenkins_home_dir}}"
-            source: "jenkins_home"
-            type: volume
-          - target: "/var/run/docker.sock"
-            source: "/var/run/docker.sock"
-            type: bind
-
-    - name: jenkins Docker | Remove temporary build directory
+    - name: "jenkins/agent | Create {{jenkins_agent.bindir}}"
       become: yes
       file:
-        path: "{{ tmp_build_dir.path }}"
-        state: absent
+        path: "{{jenkins_agent.bindir}}"
+        mode: 0755
+        state: directory
+
+    - name: jenkins/agent | Create remoting subdirectory
+      become: yes
+      file:
+        path: "{{jenkins_home_dir}}/remoting"
+        mode: 0755
+        owner: "{{jenkins_username}}"
+        group: "{{jenkins_username}}"
+        state: directory
+
+    - name: jenkins/agent | Get secret
+      uri:
+        url: "{{ jenkins_controller_url }}/computer/{{ inventory_hostname }}/jenkins-agent.jnlp"
+        force_basic_auth: yes
+        return_content: yes
+        url_username: "{{jenkins_admin_username}}"
+        url_password: "{{jenkins_admin_password}}"
+      register: r__uri__agent_jnlp
+
+    - name: jenkins/agent | secret str
+      debug:
+        msg: "{{r__uri__agent_jnlp.content | regex_replace('.*<jnlp><application-desc><argument>([a-z0-9]*).*', '\\1') }}"
+
+    - name: jenkins/agent | Get agent.jar
+      become: yes
+      get_url:
+        url: "{{ jenkins_controller_url }}/jnlpJars/agent.jar"
+        dest: "{{jenkins_agent.bindir}}/agent.jar"
+        owner: "{{jenkins_username}}"
+        group: "{{jenkins_username}}"
+      notify: restart agent service
+
+    - name: jenkins/agent | install systemd service file
+      become: yes
+      copy:
+        dest: "/etc/systemd/system/jenkins-agent.service"
+        force: yes    # remote file will be replaced when contents are different to the existing
+        content: |-
+          Description=Jenkins Agent
+          Wants=network.target
+          After=network.target
+    
+          [Service]
+          WorkingDirectory=/home/jenkins
+          ExecStart=java -jar {{jenkins_agent.bindir}}/agent.jar -jnlpUrl {{ jenkins_controller_url }}/computer/{{ inventory_hostname }}/jenkins-agent.jnlp -secret {{secret}} -workDir "/home/jenkins" -failIfWorkDirIsMissing
+          Restart=always
+          User={{jenkins_username}}
+    
+          [Install]
+          WantedBy=multi-user.target
+      vars:
+        secret: "{{r__uri__agent_jnlp.content | regex_replace('.*<jnlp><application-desc><argument>([a-z0-9]*).*', '\\1') }}"
+      notify: restart agent service
+
+    - name: jenkins/agent | enable and start service and reread systemd configs
+      become: yes
+      systemd:
+        name: jenkins-agent.service
+        enabled: yes
+        state: started
+        daemon_reload: yes
+  vars:
+    jenkins_controller_url: "http://{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' and cluster_vars.dns_user_domain is defined %}{{ groups['controller'][0] }}.{{ cluster_vars.dns_user_domain | regex_replace('\\.*$') }}{% else %}{{ hostvars[groups['controller'][0]]['ansible_host'] }}{% endif %}:80"
