@@ -1,24 +1,24 @@
 ---
 
 - name: jenkins/docker-build-images | Create temporary build directory
-  become: yes
+  become: true
   tempfile:
     state: directory
     suffix: DockerBuildTEMP
   register: tmp_build_dir
 
 - name: jenkins/docker-build-images | Template out the Dockerfiles
-  become: yes
+  become: true
   copy:
     content: "{{ build_dockerfiles[item] }}"
     dest: "{{ tmp_build_dir.path }}/{{ item }}"
     mode: 0440
-    force: yes    # remote file will be replaced when contents are different to the existing
+    force: true    # remote file will be replaced when contents are different to the existing
   with_items: "{{ build_dockerfiles | default([]) }}"
   register: r__copy_dockerfiles
 
 - name: jenkins/docker-build-images | Start building images in ./_build_dockerfiles
-  become: yes
+  become: true
   docker_image:
     source: build
     build:
@@ -27,9 +27,9 @@
         uid: "{{ jenkins_uid }}"
         gid: "{{ jenkins_gid }}"
       network: host
-      pull: yes
-      nocache: no       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
-      rm: yes
+      pull: true
+      nocache: false       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
+      rm: true
       path: "{{ item | dirname }}"
     force_source: true
     name: "{{ item | basename }}"
@@ -39,7 +39,7 @@
   poll: 0
 
 - name: jenkins/docker-build-images | Wait for Docker build-images to finish
-  become: yes
+  become: true
   async_status:
     jid: "{{ item.ansible_job_id }}"
   register: async_jobs
@@ -49,7 +49,7 @@
   with_items: "{{r__docker_image.results}}"
 
 - name: jenkins/docker-build-images | Delete temporary build directory
-  become: yes
+  become: true
   file:
     path: "{{ tmp_build_dir.path }}"
     state: absent

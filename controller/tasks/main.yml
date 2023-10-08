@@ -6,7 +6,7 @@
 - name: Forward 80 and 443 ports using iptables if host networking is being used (or if explicitly reqeusted using -e port_forward=true).
   block:
     - name: jenkins | permanently forward ports 80->8080 and 443->8443 (iptables - Debian/ Ubuntu)
-      become: yes
+      become: true
       shell: "{{ item }}"
       loop:
         - "iptables -t nat -A PREROUTING -p tcp -m tcp -i {{ ansible_default_ipv4.interface }} --dport 80 -j REDIRECT --to-ports 8080"    # Redirect traffic inbound on default ipv4 interface (e.g. eth0)
@@ -17,7 +17,7 @@
       when: ansible_os_family == 'Debian'
 
     - name: jenkins | permanently forward ports 80->8080 and 443->8443 (firewall-cmd - RedHat/ CentOS)
-      become: yes
+      become: true
       shell: "{{ item }}"
       loop:
         - "firewall-cmd --zone=external --permanent --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080"

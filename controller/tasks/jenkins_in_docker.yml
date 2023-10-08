@@ -5,7 +5,7 @@
 - name: jenkins Docker build
   block:
 #    - name: jenkins Docker | prune old docker images & volumes
-#      become: yes
+#      become: true
 #      shell: "docker image prune -f; docker volume prune -f"
 
     - name: Assert that if host_docker.network.container.cidr is defined (and valid IP), host_docker.network.container.name is also defined (we cannot change the cidr of the default 'bridge' network)
@@ -13,14 +13,14 @@
       when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.cidr is defined"
 
     - name: jenkins Docker | Create the Docker network
-      become: yes
+      become: true
       docker_network:
         name: "{{host_docker.network.container.name}}"
         ipam_config: "{%- if host_docker.network.container.cidr is defined -%}[{'subnet': '{{host_docker.network.container.cidr}}'}]{%- else-%}[]{%- endif -%}"
       when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined"
 
     - name: jenkins Docker | Create temporary build directory
-      become: yes
+      become: true
       tempfile:
         state: directory
         suffix: DockerBuildTEMP
@@ -32,7 +32,7 @@
         key: docker
 
     - name: jenkins Docker | git clone Jenkins docker build repo from github
-      become: yes
+      become: true
       git:
         repo: "{{jenkins_controller.docker_image.repo}}"
         version: "{{jenkins_controller.docker_image.repo_version}}"
@@ -41,16 +41,16 @@
     - name: jenkins Docker | Get agent facts to get memory CPU for executors calculation
       ansible.builtin.setup:
       delegate_to: "{{ groups['agent'][0] }}"
-      delegate_facts: yes
-      run_once: yes
+      delegate_facts: true
+      run_once: true
 
     - name: jenkins Docker | create JCasC config file
-      become: yes
+      become: true
       copy:
         content: "{{ _casc_config_plus_numExecutors_plus_resourceRoot_url_plus_agentnodes | to_nice_json }}"       # Note: we cannot use {{ jenkins_controller.casc_config | string | from_yaml | to_nice_yaml(indent=2, width=10000) }} because the string filter templates the multi-line vaulted ssh keys as double-escaped newlines (hence the re-templating, as vars, below)
         dest: "{{jenkins_controller.casc_file.local}}"
-        force: yes    # remote file will be replaced when contents are different to the existing
-        decrypt: yes
+        force: true    # remote file will be replaced when contents are different to the existing
+        decrypt: true
         owner: "{{ jenkins_uid }}"
         group: "{{ jenkins_gid }}"
       vars:
@@ -65,7 +65,7 @@
       register: r__copy_jcasc
 
     - name: jenkins Docker | augment the dockerfile
-      become: yes
+      become: true
       blockinfile:
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         block: |
@@ -92,11 +92,11 @@
         host_docker_gid: "{{getent_group['docker'][1]}}"
 
     - name: jenkins Docker | remove the validation of the SHA of the war file in the Dockerfile with the calculated SHA of the war file (because we're specifying the war file ourselves)
-      become: yes
+      become: true
       lineinfile:
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         regexp: '(^\s*)&&.*?sha256sum.*?(\s*\\)?$'
-        backrefs: yes
+        backrefs: true
         line: '\1&& /bin/true\2'
       register: r__lineinfile
       failed_when: not r__lineinfile.changed
@@ -107,7 +107,7 @@
     - name: jenkins Docker | Get the Jenkins release maven-metadata
       uri:
         url: "https://repo.jenkins-ci.org/public/org/jenkins-ci/main/jenkins-war/maven-metadata.xml"
-        return_content: yes
+        return_content: true
         status_code: 200
       register: r__uri
 
@@ -127,7 +127,7 @@
         _latest_jenkins_version_lts: "{{r__xml.matches | json_query(\"[].version\") | map('regex_search', '^[0-9]+\\.[0-9]+\\.[0-9]+$') | list | json_query(\"[]\") | semver_sort | last }}"
 
     - name: jenkins Docker | Build the jenkins Docker image
-      become: yes
+      become: true
       docker_image:
         source: build
         build:
@@ -141,30 +141,30 @@
             RELEASE_LINE: "{{ 'war-stable' if jenkins_controller.docker_image.war_version == 'latest-lts' else 'war' }}"
             PLUGIN_CLI_URL: "{{ lookup('url', 'https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/' + jenkins_controller.docker_image.plugin_cli_version) | from_json | json_query(\"assets[?ends_with(browser_download_url, '.jar')].browser_download_url | [0]\") }}"
           network: host
-          pull: yes
+          pull: true
           nocache: "{{ 'yes' if rebuild_docker_image is defined and rebuild_docker_image|bool else 'no' }}"       # Setting this to 'yes' will cause a rebuild every time, forcing a new image to be built, even if no changes have been made to the Dockerfile.
-          rm: yes
+          rm: true
           path: "{{ tmp_build_dir.path }}"
         force_source: true
         name: "jenkins_controller:{{ jenkins_war_version }}"
       register: r__docker_image
 
     - name: jenkins Docker | Create and run the jenkins Docker container
-      become: yes
+      become: true
       docker_container:
-        cleanup: no
-        detach: yes
+        cleanup: false
+        detach: true
         name: "jenkins_controller"
         user: "{{jenkins_uid}}:{{jenkins_gid}}"
         groups: ["docker"]
         hostname: "docker--{{inventory_hostname}}"
         image: "{{r__docker_image.image.Id}}"
-        recreate: no        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
+        recreate: false        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
         restart_policy: "always"
         network_mode: "{{ host_docker.network.container.mode | default('host') }}"
-        networks_cli_compatible: yes
+        networks_cli_compatible: true
         networks: "[{%- if host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined -%}{'name': '{{host_docker.network.container.name}}'}{%- endif -%}]"
         ports: ["80:8080", "443:8443", "50000:50000"]
         env:
@@ -194,11 +194,11 @@
       delay: 1
 
     - name: jenkins Docker | truncate JCasC config file.  Do not delete, as it is bind-mounted, so needs to exist if the VM restarts.  Cannot Ansible 'copy' to an empty string, as this changes the inode (which is what is really bind-mounted)
-      become: yes
+      become: true
       shell: "truncate -s0 {{jenkins_controller.casc_file.local}}"
 
     - name: jenkins Docker | Remove temporary build directory
-      become: yes
+      become: true
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent

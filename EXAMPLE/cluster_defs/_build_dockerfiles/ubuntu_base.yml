@@ -1,0 +1,14 @@
+---
+
+build_dockerfiles:
+  ubuntu_base: |-
+    FROM ubuntu:22.04
+    ARG DEBIAN_FRONTEND=noninteractive
+    ENV JENKINS_HOME={{jenkins_home_dir}}
+    ENV HOME=${JENKINS_HOME}
+    ENV PIPENV_VENV_IN_PROJECT=true
+    ENV TZ=Europe/London
+    SHELL ["/bin/bash", "-c"]
+
+    RUN groupadd -g {{jenkins_gid}} {{jenkins_username}} && \
+        useradd -m -u {{jenkins_uid}} -g {{jenkins_gid}} -s /bin/bash {{jenkins_username}}

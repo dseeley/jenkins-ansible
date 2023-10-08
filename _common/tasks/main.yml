@@ -1,10 +1,10 @@
 ---
 
 - name: jenkins/common | Install required packages (gnupg2 for docker GPG key)
-  become: yes
+  become: true
   apt:
     name: ['git', 'gnupg2', 'python3-pip', 'python3-docker', 'iptables-persistent']
-    update_cache: yes
+    update_cache: true
   when: ansible_os_family == 'Debian'
 
 - name: jenkins/common | install Docker community edition
@@ -12,14 +12,14 @@
 
 
 - name: jenkins/common | Create user group, named as per username (with same gid as uid if uid is defined)
-  become: yes
+  become: true
   group:
     name: "{{ jenkins_username }}"
     gid: "{{ jenkins_gid }}"
 
 # Note: must run after docker install for docker group to exist
 - name: jenkins/common | linux users
-  become: yes
+  become: true
   user:
     name: "{{ jenkins_username }}"
     group: "{{ jenkins_username }}"
@@ -29,7 +29,7 @@
     groups: ["docker"]
 
 - name: jenkins/common | set unlimited core files (ulimit -c)
-  become: yes
+  become: true
   pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"
@@ -37,7 +37,7 @@
     value: unlimited
 
 - name: jenkins/common | set unlimited fsize (ulimit -f)
-  become: yes
+  become: true
   pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"
@@ -45,7 +45,7 @@
     value: unlimited
 
 - name: jenkins/common | set 4096/8192 nofile (ulimit -n)
-  become: yes
+  become: true
   pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "{{ item.key }}"
@@ -54,7 +54,7 @@
   with_dict: {'soft': 4096, 'hard': 8192}
 
 - name: jenkins/common | set 30654 nproc (ulimit -u)
-  become: yes
+  become: true
   pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"

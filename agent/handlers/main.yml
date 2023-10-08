@@ -1,9 +1,9 @@
 ---
 
 - name: restart agent service
-  become: yes
+  become: true
   service:
     name: jenkins-agent.service
-    enabled: yes
+    enabled: true
     state: restarted
-    daemon_reload: yes
+    daemon_reload: true

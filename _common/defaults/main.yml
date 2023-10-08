@@ -1,7 +1,7 @@
 ---
 
 ## always rebuild docker images
-rebuild_docker_image: no
+rebuild_docker_image: false
 
 host_docker:
   user: &hostdockeruser { name: 'docker', id: 973 }   #Need to set the gid explicitly, so that it doesn't clash with other gids. (In the parent OS, Ubuntu2204, 999 is available and selected by default, but then in bookworm (which is used for the jenkins controller image), 999 is used by systemd-journal.

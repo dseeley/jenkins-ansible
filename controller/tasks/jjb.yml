@@ -1,26 +1,26 @@
 ---
 
 - name: jenkins | Install JJB packages from apt repo
-  become: yes
+  become: true
   apt:
     pkg: ['jenkins-job-builder']
-    update_cache: yes
+    update_cache: true
 
 - name: jenkins | Upgrade JJB packages from pip
-  become: yes
+  become: true
   pip:
     name: "jenkins-job-builder"
     state: latest
 
 - name: JJB | Create temporary build directory
-  become: yes
+  become: true
   tempfile:
     state: directory
     suffix: JJBTEMP
   register: tmp_build_dir
 
 - name: JJB | Upload jenkins_jobs.ini template
-  become: yes
+  become: true
   copy:
     content: |-
       [job_builder]
@@ -45,14 +45,14 @@
 - name: JJB
   block:
     - name: JJB | Copy folder jobs to the JJB directory
-      become: yes
+      become: true
       blockinfile:
         content: |-
           - job:
               name: "{{item}}"
               project-type: folder
         path: "{{ tmp_build_dir.path }}/_folders-definition.yml"
-        create: yes
+        create: true
         marker: "## {mark} ANSIBLE MANAGED BLOCK ({{item}})"
         mode: 0440
       with_items: "{{ _folder_names }}"
@@ -61,28 +61,28 @@
         _folder_names: "{{ _job_names | map ('regex_search', '^(.*?)\/.+$', '\\1') | list | json_query(\"[]\") }}"
 
     - name: JJB | Reload jenkins-jobs (create folders first)
-      become: yes
+      become: true
       shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
 
     - name: JJB | Copy jobs to the JJB directory
-      become: yes
+      become: true
       copy:
         content: |-
           - job:
               {{ item[_filename].job | to_nice_yaml(indent=2, width=10000) | indent(4, false) }}
         dest: "{{ tmp_build_dir.path }}/{{ _filename }}"
-        force: yes    # remote file will be replaced when contents are different to the existing
+        force: true    # remote file will be replaced when contents are different to the existing
         mode: 0440
       with_items: "{{ jjb_jobs }}"
       vars:
         _filename: "{{ item.keys() | list | first }}"
 
     - name: JJB | Reload jenkins-jobs (add jobs)
-      become: yes
+      become: true
       shell: "jenkins-jobs --conf {{ tmp_build_dir.path }}/jenkins_jobs.ini update {{ tmp_build_dir.path }}"
 
     - name: JJB | Remove temporary build directory
-      become: yes
+      become: true
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent
