@@ -43,6 +43,7 @@
       delegate_to: "{{ groups['agent'][0] }}"
       delegate_facts: true
       run_once: true
+      when: "'agent' in groups"
 
     - name: jenkins Docker | create JCasC config file
       become: true
@@ -59,8 +60,8 @@
         _casc_config_plus_numExecutors: "{{_base_casc_config | combine({'jenkins': {'numExecutors': __num_executors_controller }}, recursive=true)}}"
         __location_url: "http://{%- if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' -%} {{ansible_hostname | regex_replace('-(?!.*-).*')}}.{{cluster_vars.dns_user_domain | regex_replace('^(.*?)\\.?$','\\1')}} {%- else -%} {{ansible_default_ipv4.address}} {%- endif -%}"
         _casc_config_plus_numExecutors_plus_resourceRoot_url: "{{_casc_config_plus_numExecutors | combine({'unclassified': {'location': {'url': __location_url}}}, recursive=true)}}"
-        __num_executors_agent: "{{ (hostvars[groups['agent'][0]]['ansible_processor_vcpus'] * jenkins_agent.numExecutorsMultiplier) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == (Number of vCPUs) * scaling factor
-        __agentnodes: "{{groups['agent'] | json_query(\"[].{permanent: {labelString: `agent`, name: @, numExecutors: `\" + __num_executors_agent + \"`, remoteFS: `/home/jenkins`, launcher: {inbound: {workDirSettings: {disabled: `false`, failIfWorkDirIsMissing: `true`, internalDir: `remoting`}}}}}\") }}"
+        __num_executors_agent: "{{ 0 if 'agent' not in groups  else  (hostvars[groups['agent'][0]]['ansible_processor_vcpus'] * jenkins_agent.numExecutorsMultiplier) | default(0) | round(0,'ceil')|int }}"    # A rough calculator (good for ansible loads) == (Number of vCPUs) * scaling factor
+        __agentnodes: "{{ [] if 'agent' not in groups  else  groups['agent'] | json_query(\"[].{permanent: {labelString: `agent`, name: @, numExecutors: `\" + __num_executors_agent + \"`, remoteFS: `/home/jenkins`, launcher: {inbound: {workDirSettings: {disabled: `false`, failIfWorkDirIsMissing: `true`, internalDir: `remoting`}}}}}\") }}"
         _casc_config_plus_numExecutors_plus_resourceRoot_url_plus_agentnodes: "{{_casc_config_plus_numExecutors_plus_resourceRoot_url | combine({'jenkins': {'nodes': __agentnodes}}, recursive=true)}}"
       register: r__copy_jcasc
 
