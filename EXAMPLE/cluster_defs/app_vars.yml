@@ -75,15 +75,11 @@ jenkins_controller:
       markupFormatter:
         rawHtml:
           disableSyntaxHighlighting: false
-    unclassified:
-      location:
-        adminAddress: "{{ jenkins_ui.email | default(omit) }}"
-      gitHubConfiguration:
-        apiRateLimitChecker: ThrottleOnOver   #ThrottleForNormalize, ThrottleOnOver, NoThrottle
-      login-theme-plugin:
+    appearance:
+      loginTheme:
         header: "{{jenkins_ui.content}}"
         useDefaultTheme: true
-      simple-theme-plugin:
+      simpleTheme:
         elements:
           - cssText:              # NOTE: #header is used before version 2.346 ;  #page-header is used after version 2.346
               text: |
@@ -98,6 +94,11 @@ jenkins_controller:
                   font-weight: bold;
                   font-style: italic;
                 }
+    unclassified:
+      location:
+        adminAddress: "{{ jenkins_ui.email | default(omit) }}"
+      gitHubConfiguration:
+        apiRateLimitChecker: ThrottleOnOver   #ThrottleForNormalize, ThrottleOnOver, NoThrottle
       globalDefaultFlowDurabilityLevel:
         durabilityHint: PERFORMANCE_OPTIMIZED
     credentials:
