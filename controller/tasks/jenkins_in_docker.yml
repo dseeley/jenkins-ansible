@@ -94,11 +94,10 @@
 
     - name: jenkins Docker | remove the validation of the SHA of the war file in the Dockerfile with the calculated SHA of the war file (because we're specifying the war file ourselves)
       become: true
-      lineinfile:
+      ansible.builtin.replace:
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         regexp: '(^\s*)&&.*?sha256sum.*?(\s*\\)?$'
-        backrefs: true
-        line: '\1&& /bin/true\2'
+        replace: '\g<1>&& /bin/true\g<2>'
       register: r__lineinfile
       failed_when: not r__lineinfile.changed
 
