@@ -19,7 +19,7 @@
 
 - name: jenkins/docker-build-images | Start building images in ./_build_dockerfiles
   become: true
-  docker_image:
+  community.docker.docker_image:
     source: build
     build:
       dockerfile: "{{ item | basename }}"

@@ -2,9 +2,7 @@
 
 redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback', '_scheme_rmvm_rmdisk_only', '_scheme_rmvm_keepdisk_rollback', '_noredeploy_scale_in_only']
 
-prometheus_node_exporter_install: false
-filebeat_install: false
-metricbeat_install: false
+test_touch_disks: false
 
 pkgupdate: onCreate
 reboot_on_package_upgrade: true
@@ -18,7 +16,6 @@ cluster_vars:
   type: "{{cloud_type}}"
   region: "{{region}}"
   custom_tagslabels:
-    inv_environment_id: "{{buildenv}}"
-    inv_service_id: "{{app_class}}"
-    inv_cluster_id: "{{cluster_name}}"
-    inv_cluster_type: "{{app_name}}"
+    cv__cluster_name: "{{cluster_name}}"
+    cv__environment: "{{buildenv}}"
+    cv__owner: "{{ lookup('env','USER') | lower }}"

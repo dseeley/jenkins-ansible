@@ -8,8 +8,9 @@
 
 - name: jenkins | Upgrade JJB packages from pip
   become: true
-  pip:
+  ansible.builtin.pip:
     name: "jenkins-job-builder"
+    extra_args: "--break-system-packages"
     state: latest
 
 - name: JJB | Create temporary build directory

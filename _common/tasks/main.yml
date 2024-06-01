@@ -30,7 +30,7 @@
 
 - name: jenkins/common | set unlimited core files (ulimit -c)
   become: true
-  pam_limits:
+  community.general.pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"
     limit_item: core
@@ -38,7 +38,7 @@
 
 - name: jenkins/common | set unlimited fsize (ulimit -f)
   become: true
-  pam_limits:
+  community.general.pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"
     limit_item: fsize
@@ -46,7 +46,7 @@
 
 - name: jenkins/common | set 4096/8192 nofile (ulimit -n)
   become: true
-  pam_limits:
+  community.general.pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "{{ item.key }}"
     limit_item: nofile
@@ -55,7 +55,7 @@
 
 - name: jenkins/common | set 30654 nproc (ulimit -u)
   become: true
-  pam_limits:
+  community.general.pam_limits:
     domain: "{{jenkins_username}}"
     limit_type: "-"
     limit_item: nproc

@@ -14,7 +14,7 @@
 
     - name: jenkins Docker | Create the Docker network
       become: true
-      docker_network:
+      community.docker.docker_network:
         name: "{{host_docker.network.container.name}}"
         ipam_config: "{%- if host_docker.network.container.cidr is defined -%}[{'subnet': '{{host_docker.network.container.cidr}}'}]{%- else-%}[]{%- endif -%}"
       when: "host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined"
@@ -112,7 +112,7 @@
       register: r__uri
 
     - name: jenkins Docker | Extract the xml from the Jenkins release metadata
-      xml:
+      community.general.xml:
         xmlstring : "{{r__uri.content}}"
         content: "text"
         xpath: "/metadata/versioning/versions/version"
@@ -128,7 +128,7 @@
 
     - name: jenkins Docker | Build the jenkins Docker image
       become: true
-      docker_image:
+      community.docker.docker_image:
         source: build
         build:
           dockerfile: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
@@ -151,7 +151,7 @@
 
     - name: jenkins Docker | Create and run the jenkins Docker container
       become: true
-      docker_container:
+      community.docker.docker_container:
         cleanup: false
         detach: true
         name: "jenkins_controller"
