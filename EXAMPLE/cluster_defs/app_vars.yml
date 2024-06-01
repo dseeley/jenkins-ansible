@@ -36,7 +36,7 @@ jenkins_controller:
   docker_image:
     repo: "https://github.com/jenkinsci/docker.git"
     repo_version: "HEAD"                                            # Or a git hash, e.g. "8a9f09e5f5ccfe2f2c2b13a9f0fe602f9500fa7c"
-    repo_dockerfile_path: "/17/debian/bookworm/hotspot/Dockerfile"  # From: https://github.com/jenkinsci/docker.git
+    repo_dockerfile_path: "/debian/bookworm/hotspot/Dockerfile"     # From: https://github.com/jenkinsci/docker.git
     war_version: "latest-lts"                                       # One of: 'latest-lts', 'latest', or a legitimate version string (from https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/maven-metadata.xml)
     plugin_cli_version: "latest"                                    # One of: 'latest', or 'tags/<tag>' (e.g. 'tags/2.9.3')
   workspace_dir: "{{jenkins_home_dir}}/jobs"
