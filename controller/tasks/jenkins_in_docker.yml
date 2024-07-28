@@ -159,6 +159,7 @@
         groups: ["docker"]
         hostname: "docker--{{inventory_hostname}}"
         image: "{{r__docker_image.image.Id}}"
+        image_name_mismatch: ignore
         recreate: false        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
         state: started
         restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
