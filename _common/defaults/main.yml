@@ -51,7 +51,6 @@ jenkins_controller:
     - "blueocean:latest"
     - "configuration-as-code:latest"
     - "docker-workflow:latest"
-    - "extended-choice-parameter:latest"
     - "git-parameter:latest"
     - "lockable-resources:latest"
     - "login-theme:latest"
