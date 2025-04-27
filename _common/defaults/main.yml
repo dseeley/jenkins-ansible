@@ -104,7 +104,7 @@ jenkins_controller:
     unclassified:
       location:
         adminAddress: "{{ jenkins_ui.email | default(omit) }}"
-      gitHubConfiguration:
+      githubpluginconfig:
         apiRateLimitChecker: ThrottleOnOver   #ThrottleForNormalize, ThrottleOnOver, NoThrottle
       globalDefaultFlowDurabilityLevel:
         durabilityHint: PERFORMANCE_OPTIMIZED

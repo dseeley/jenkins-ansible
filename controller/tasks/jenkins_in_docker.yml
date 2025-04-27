@@ -71,8 +71,8 @@
         path: "{{ tmp_build_dir.path }}{{jenkins_controller.docker_image.repo_dockerfile_path}}"
         block: |
           USER root
-          ENV CASC_JENKINS_CONFIG "{{ jenkins_controller.casc_file.remote | dirname }}"
 
+          # Install the dependencies for the Docker CLI (so we can run Docker builds in the container)
           RUN apt-get update \
           && apt-get install -y git vim sudo procps python3-pip \
           && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg-agent software-properties-common \
@@ -84,6 +84,12 @@
 
           # Create a 'docker' group to mirror the docker group on the host. Note: Cannot `usermod -a -G docker jenkins` here.  Need to start the container with --group-add docker (in Ansible, add to the 'groups')
           RUN ((getent group docker && groupmod -g {{host_docker_gid}} docker) || addgroup docker --gid {{host_docker_gid}}) && usermod -a -G docker jenkins
+          
+          # Extract jenkins-cli.jar from the war file
+          RUN unzip -j /usr/share/jenkins/jenkins.war WEB-INF/lib/cli-*.jar -d /usr/local/bin && mv /usr/local/bin/cli-*.jar /usr/local/bin/jenkins-cli.jar
+          
+          # Create an 'update_plugins.groovy' file that we can use to update all the plugins
+          RUN echo "import jenkins.model.*\n\ndef pluginManager = Jenkins.instance.pluginManager\n\npluginManager.doCheckUpdatesServer()\n\ndef plugins = pluginManager.plugins.findAll { it -> it.hasUpdate() }.collect { it -> it.getShortName() }\n\nif (plugins) {\n    pluginManager.install(plugins, false).each { it -> it.get() }\n    Jenkins.instance.safeRestart()\n}" > /usr/local/bin/update_plugins.groovy
 
           USER ${user}
 
@@ -151,50 +157,101 @@
         name: "jenkins_controller:{{ jenkins_war_version }}"
       register: r__docker_image
 
-    - name: jenkins Docker | Create and run the jenkins Docker container
-      become: true
-      community.docker.docker_container:
-        cleanup: false
-        detach: true
-        name: "jenkins_controller"
-        user: "{{jenkins_uid}}:{{jenkins_gid}}"
-        groups: ["docker"]
-        hostname: "docker--{{inventory_hostname}}"
-        image: "{{r__docker_image.image.Id}}"
-        image_name_mismatch: ignore
-        recreate: false        # Setting this to 'yes' forces reprovisioning of the container even if the image has not changed
-        state: started
-        restart: "{%- if r__copy_jcasc.changed -%}yes{%-else-%}no{%- endif -%}"
-        restart_policy: "always"
-        network_mode: "{{ host_docker.network.container.mode | default('host') }}"
-        networks_cli_compatible: true
-        networks: "[{%- if host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined -%}{'name': '{{host_docker.network.container.name}}'}{%- endif -%}]"
-        ports: ["80:8080", "443:8443", "50000:50000"]
-        env:
-          # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
-          # NOTE: -Dpermissive-script-security.enabled=true is there to allow scripts to work without having to manually approve them all.  Also need the permissive-script-security plugin.  There is also a 'no_security' option that turns off all logging.
-          JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true -Dhudson.model.ParametersAction.keepUndefinedParameters=false"
-#          JENKINS_OPTS: "--httpsPort=8443" --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword
-          JENKINS_HOME: "{{jenkins_home_dir}}"
-        mounts:
-          - target: "{{jenkins_home_dir}}"
-            source: "jenkins_home"
-            type: volume
-          - target: "/var/run/docker.sock"
-            source: "/var/run/docker.sock"
-            type: bind
-          - target: "{{jenkins_controller.casc_file.remote}}"
-            source: "{{jenkins_controller.casc_file.local}}"
-            type: bind
+    - name: jenkins Docker | Create and run the container without any config, then update the plugins, then run *with* the config
+      block:
+        - name: jenkins Docker | Create and run the initial Jenkins Docker container
+          become: true
+          community.docker.docker_container: |
+            {{jenkins_docker_conf}}
+          register: r__docker_container
 
-    - name: jenkins Docker | Wait for Jenkins API to become available
-      uri:
-        url: "http://127.0.0.1:80/api"
-        status_code: 200
-      register: r__uri
-      until: r__uri.status == 200
-      retries: 60
-      delay: 1
+        - name: jenkins Docker | Wait for Jenkins API to become available
+          uri: { url: "http://127.0.0.1:80/api", status_code: 200 }
+          register: r__uri
+          until: r__uri.status == 200
+          retries: 60
+          delay: 1
+
+        - name: jenkins Docker | Update twice.  First time for the current plugins, second time for the any plugins that were held back because the first plugins were disabled
+          block:
+            - name: jenkins Docker | update all the builtin plugins (docker exec)
+              become: true
+              community.docker.docker_container_exec:
+                container: "{{ r__docker_container.container.Name | regex_replace('^/')}}"
+                command: "/bin/bash -c \"java -jar /usr/local/bin/jenkins-cli.jar -s http://localhost:8080 -auth {{jenkins_admin_username}}:{{jenkins_admin_password}} groovy = < /usr/local/bin/update_plugins.groovy\""
+                chdir: "/home/{{jenkins_username}}"
+              register: r__docker_container_exec
+
+            - name: jenkins Docker | Wait for Jenkins API to become available
+              uri: { url: "http://127.0.0.1:80/api", status_code: 200 }
+              register: r__uri
+              until: r__uri.status == 200
+              retries: 60
+              delay: 1
+
+            - name: jenkins Docker | update all the builtin plugins again (docker exec)
+              become: true
+              community.docker.docker_container_exec:
+                container: "{{ r__docker_container.container.Name | regex_replace('^/')}}"
+                command: "/bin/bash -c \"java -jar /usr/local/bin/jenkins-cli.jar -s http://localhost:8080 -auth {{jenkins_admin_username}}:{{jenkins_admin_password}} groovy = < /usr/local/bin/update_plugins.groovy\""
+                chdir: "/home/{{jenkins_username}}"
+              register: r__docker_container_exec
+
+            - name: jenkins Docker | Wait for Jenkins API to become available
+              uri: { url: "http://127.0.0.1:80/api", status_code: 200 }
+              register: r__uri
+              until: r__uri.status == 200
+              retries: 60
+              delay: 1
+
+        - name: jenkins Docker | Recreate and run the jenkins Docker container
+          become: true
+          community.docker.docker_container: |
+            {{ jenkins_docker_conf | combine(extra_jenkins_docker_conf) }}
+          vars:
+            extra_jenkins_docker_conf:
+              env:
+                CASC_JENKINS_CONFIG: "{{ jenkins_controller.casc_file.remote | dirname }}"
+              mounts:
+                - {"target": "{{jenkins_home_dir}}", "source": "jenkins_home", "type": "volume"}
+                - {"target": "/var/run/docker.sock", "source": "/var/run/docker.sock", "type": "bind"}
+                - {"target": "{{jenkins_controller.casc_file.remote}}", "source": "{{jenkins_controller.casc_file.local}}", "type": "bind"}
+
+        - name: jenkins Docker | Wait for Jenkins API to become available
+          uri: { url: "http://127.0.0.1:80/api", status_code: 200 }
+          register: r__uri
+          until: r__uri.status == 200
+          retries: 60
+          delay: 1
+
+      vars:
+        jenkins_docker_conf:
+          cleanup: false
+          detach: true
+          name: "jenkins_controller"
+          user: "{{jenkins_uid}}:{{jenkins_gid}}"
+          groups: ["docker"]
+          hostname: "docker--{{inventory_hostname}}"
+          image: "{{r__docker_image.image.Id}}"
+          image_name_mismatch: ignore
+          recreate: false        # Setting this to 'true' forces reprovisioning of the container even if the image has not changed
+          state: started
+          restart: "{%- if r__copy_jcasc.changed -%}true{%-else-%}false{%- endif -%}"
+          restart_policy: "always"
+          network_mode: "{{ host_docker.network.container.mode | default('host') }}"
+          networks_cli_compatible: true
+          networks: "[{%- if host_docker.network.container.mode=='bridge' and host_docker.network.container.name is defined -%}{'name': '{{host_docker.network.container.name}}'}{%- endif -%}]"
+          ports: ["80:8080", "443:8443", "50000:50000"]
+          env:
+            # NOTE: EXCLUDE_SESSION_ID and DISABLE_CSRF_PROTECTION are needed for Jenkins Job Builder, which doesn't currently support either Session IDs or CSRF crumb (https://storyboard.openstack.org/#!/story/2006489)
+            # NOTE: -Dpermissive-script-security.enabled=true is there to allow scripts to work without having to manually approve them all.  Also need the permissive-script-security plugin.  There is also a 'no_security' option that turns off all logging.
+            JAVA_OPTS: "-XX:+ExplicitGCInvokesConcurrent -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dpermissive-script-security.enabled=no_security -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true -Dhudson.model.ParametersAction.keepUndefinedParameters=false"
+  #          JENKINS_OPTS: "--httpsPort=8443" --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword
+            JENKINS_HOME: "{{jenkins_home_dir}}"
+          mounts:
+            - {"target": "{{jenkins_home_dir}}", "source": "jenkins_home", "type": "volume"}
+            - {"target": "/var/run/docker.sock", "source": "/var/run/docker.sock", "type": "bind"}
+
 
     - name: jenkins Docker | truncate JCasC config file.  Do not delete, as it is bind-mounted, so needs to exist if the VM restarts.  Cannot Ansible 'copy' to an empty string, as this changes the inode (which is what is really bind-mounted)
       become: true
