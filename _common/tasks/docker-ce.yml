@@ -26,7 +26,7 @@
           {% endif %}
           {%- if host_docker.network.docker0_default_address_pools is defined and host_docker.network.docker0_default_address_pools | length == 0 -%}
           bridge: none
-          {%- elif host_docker.network.docker0_default_address_pools is defined and host_docker.network.docker0_default_address_pools | length -%}
+          {%- elif host_docker.network.docker0_default_address_pools is defined and host_docker.network.docker0_default_address_pools | length > 0 -%}
           "default-address-pools": {{ host_docker.network.docker0_default_address_pools | to_json }}
           {% endif %}
 
