@@ -1,7 +1,7 @@
 ---
 
 # A list of CIDRs from which to allow SSH access
-ssh_whitelist:  ['10.0.0.0/8', '82.69.177.168/29']
+ssh_whitelist:  ['10.0.0.0/8']
 
 cluster_vars:
   dns_cloud_internal_domain: "{{region}}.compute.internal"    # The cloud-internal zone as defined by the cloud provider (e.g. GCP, AWS)
@@ -13,9 +13,8 @@ cluster_vars:
   instance_profile_name: ""
   user_data: |-
     #cloud-config
-    system_info:
-      default_user:
-        name: ansible
+    system_info: { default_user: { name: ansible } }
+#    swap: { filename: /swap.img, size: auto, maxsize: 4G }    # Add swap file by default, as lower-powered dev machines struggle to restore DB without it. (NOTE: disable for stage/prod)
   secgroups_existing: []
   secgroup_new:
     - proto: "tcp"
